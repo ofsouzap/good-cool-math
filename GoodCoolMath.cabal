@@ -1,0 +1,28 @@
+cabal-version:      2.4
+name:               GoodCoolMath
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+synopsis:           Does math stuff including exact math stuff and things.
+
+-- The license under which the package is released.
+license:            MIT
+author:             Ofsouzap
+maintainer:         ofsouzap@gmail.com
+
+library
+    exposed-modules:  GoodCoolMath
+    build-depends:    base ^>=4.16.4.0
+    hs-source-dirs:   GoodCoolMath
+    default-language: Haskell2010
+    ghc-options:      -Wall -Wno-unused-top-binds
+
+test-suite TestGoodCoolMath
+    main-is:          Main.hs
+    build-depends:    base ^>=4.16.4.0,
+                      hspec,
+                      QuickCheck,
+                      GoodCoolMath
+    hs-source-dirs:   TestGoodCoolMath
+    type:             exitcode-stdio-1.0
+    default-language: Haskell2010
