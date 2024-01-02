@@ -12,6 +12,8 @@ maintainer:         ofsouzap@gmail.com
 
 library
     exposed-modules:  GoodCoolMath
+    other-modules:    Expressions,
+                      Simplification
     build-depends:    base ^>=4.16.4.0,
                       QuickCheck
     hs-source-dirs:   GoodCoolMath
