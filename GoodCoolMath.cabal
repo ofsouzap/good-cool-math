@@ -20,11 +20,15 @@ library
 
 test-suite TestGoodCoolMath
     main-is:          Main.hs
-    other-modules:    SimplificationTests
+    other-modules:    OrderedMathExprOrderingTests,
+                      EquatingTests
+                      SimplificationTests
     build-depends:    base ^>=4.16.4.0,
+                      GoodCoolMath,
                       hspec,
                       QuickCheck,
-                      GoodCoolMath
+                      checkers,
+                      hspec-checkers,
     hs-source-dirs:   TestGoodCoolMath
     type:             exitcode-stdio-1.0
     default-language: Haskell2010
