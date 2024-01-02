@@ -1,5 +1,8 @@
 module Main where
 
+import Test.Hspec ( hspec )
+import qualified SimplificationTests ( spec )
+
 main :: IO ()
-main = do
-  putStrLn "TODO" -- TODO - make tests. Use QuickCheck and stuff
+main = hspec $ do
+  SimplificationTests.spec
