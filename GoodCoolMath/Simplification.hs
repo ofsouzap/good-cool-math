@@ -113,11 +113,13 @@ e1 =->..<-= e2 = simplifyFully e1 =~= simplifyFully e2
 -------------------------------------
 
 -- |Simplify the first expression in a list that can be simplified
-trySimplifyExprList :: [MathExpr] -> Maybe [MathExpr] -- TODO - optimise with tail-recursion
-trySimplifyExprList [] = Nothing
-trySimplifyExprList (eh:ets) = case trySimplifyStep eh of
-  Just eh' -> Just (eh' : ets)
-  Nothing -> trySimplifyExprList ets >>= Just . (eh :)
+trySimplifyExprList :: [MathExpr] -> Maybe [MathExpr]
+trySimplifyExprList = aux [] where
+  aux :: [MathExpr] -> [MathExpr] -> Maybe [MathExpr]
+  aux _ [] = Nothing
+  aux acc (eh:ets) = case trySimplifyStep eh of
+    Just eh' -> Just (reverse acc ++ (eh' : ets))
+    Nothing -> aux (eh:acc) ets
 
 -- |Try to simplify a subexpression of an expression
 trySimplifyChildren :: MathExpr -> Maybe MathExpr
