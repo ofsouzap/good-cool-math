@@ -1,6 +1,8 @@
 module GoodCoolMath
   ( module Expressions
-  , module Simplification ) where
+  , module Simplification
+  , module Derivation ) where
 
 import Expressions
 import Simplification
+import Derivation
