@@ -16,6 +16,7 @@ library
                       GoodCoolMath.Shorthand,
                       GoodCoolMath.Simplification,
                       GoodCoolMath.Derivation,
+                      GoodCoolMath.Evaluation,
                       GoodCoolMath.Examples
     build-depends:    base ^>=4.16.4.0,
                       QuickCheck

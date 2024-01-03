@@ -29,7 +29,7 @@ bracketedShow x = "(" ++ show x ++ ")"
 
 data MathExpr =
     IntLit Int -- TODO - constants that aren't necessarily int-valued. Could be named with a string, could be just named (eg. pi)
-  | Var String
+  | Var String -- TODO - wrap variable names in new data type
   | Neg MathExpr
   | Sum (NonEmpty MathExpr)
   | Prod (NonEmpty MathExpr)

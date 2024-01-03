@@ -69,7 +69,7 @@ spec = do
         \ (es1', es2') -> Prod (NonEmpty.map unwrapNonOneIntLitMathExpr es1' <> pure (one) <> NonEmpty.map unwrapNonOneIntLitMathExpr es2') =->..<-= Prod (NonEmpty.map unwrapNonOneIntLitMathExpr es1' <> NonEmpty.map unwrapNonOneIntLitMathExpr es2')
       it "should remove them when there are many" $ property $
         \ (WithWithoutIntLitOneMathExprs (xs, ys)) -> Prod xs =->..<-= Prod ys
-    -- TODO - test combining int literals in sum
+    -- TODO - test combining int literals in product
     -- describe "when a product has multiple sums in it" $ do
     --   it "should expand them into a single sum" $ property $
     --     \ (SumsAndWithWithout (sumTerms, xs, others)) -> Prod xs =->..<-= Prod ((Sum . concat) sumTerms : others)

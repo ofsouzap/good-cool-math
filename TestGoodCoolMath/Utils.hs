@@ -6,6 +6,9 @@ import Data.List.NonEmpty
   , fromList )
 import qualified Data.List.NonEmpty as NonEmpty
   ( map )
+import Test.Hspec
+  ( shouldSatisfy
+  , Expectation )
 import Test.QuickCheck
   ( Arbitrary
   , Gen
@@ -13,6 +16,8 @@ import Test.QuickCheck
   , shuffle
   , suchThat )
 import GoodCoolMath
+
+-- General
 
 isSumTerm :: MathExpr -> Bool
 isSumTerm (Sum _) = True
@@ -26,6 +31,17 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
     h <- arbitrary
     ts <- arbitrary
     return (h :| ts)
+
+-- Tests
+
+approxEq :: (Ord t, Num t) => t -> t -> t -> Bool
+approxEq exp atol = (<) atol . abs . (-) exp
+
+shouldApproxEq :: (Show t, Ord t, Num t) => t -> t -> t -> Expectation
+shouldApproxEq exp atol = (`shouldSatisfy` approxEq exp atol)
+
+maybeShouldApproxEq :: (Show t, Ord t, Num t) => t -> t -> Maybe t -> Expectation
+maybeShouldApproxEq exp atol = (`shouldSatisfy` maybe False (approxEq exp atol))
 
 -- Shuffled and unshuffled non-empty list pairs
 
