@@ -127,7 +127,7 @@ trySimplifyStep e@(Prod es) = firstJust
   , Prod <$> tryCollectProdIntLits es -- Collect integer literal terms together
   , Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
   , trySimplifyChildren e ] -- Otherwise, try simplify children
-  -- TODO - simplify 0s in products
+  -- TODO - multiply out product-of-sums terms
 trySimplifyStep (Exp (Ln e)) = Just e -- Exponential of logarithm becomes the subexpression
 trySimplifyStep (Exp (Sum es)) = (Just . Prod . map Exp) es -- Exponential of sum becomes product of exponentials
 trySimplifyStep e = trySimplifyChildren e
