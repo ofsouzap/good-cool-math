@@ -11,11 +11,11 @@ author:             Ofsouzap
 maintainer:         ofsouzap@gmail.com
 
 library
-    exposed-modules:  GoodCoolMath
-    other-modules:    Expressions,
-                      Simplification,
-                      Derivation,
-                      Shorthand
+    exposed-modules:  GoodCoolMath,
+                      GoodCoolMath.Expressions,
+                      GoodCoolMath.Shorthand,
+                      GoodCoolMath.Simplification,
+                      GoodCoolMath.Derivation
     build-depends:    base ^>=4.16.4.0,
                       QuickCheck
     hs-source-dirs:   GoodCoolMath

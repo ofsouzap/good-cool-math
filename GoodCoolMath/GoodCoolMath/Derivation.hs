@@ -1,4 +1,4 @@
-module Derivation
+module GoodCoolMath.Derivation
   ( der ) where
 
 import Data.List.NonEmpty
@@ -6,8 +6,8 @@ import Data.List.NonEmpty
   , (<|) )
 import qualified Data.List.NonEmpty as NonEmpty
   ( map )
-import Expressions ( MathExpr(..) )
-import Shorthand
+import GoodCoolMath.Expressions ( MathExpr(..) )
+import GoodCoolMath.Shorthand
 
 ------------------------
 -- Taking derivatives --

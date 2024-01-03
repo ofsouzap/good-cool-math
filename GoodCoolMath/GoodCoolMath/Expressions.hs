@@ -1,4 +1,4 @@
-module Expressions
+module GoodCoolMath.Expressions
   ( MathExpr(..)
   , (=~=)
   , OrderedMathExpr(..)

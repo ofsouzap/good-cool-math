@@ -1,10 +1,10 @@
-module Simplification
+module GoodCoolMath.Simplification
   ( trySimplifyStep
   , (=->..<-=)
   , simplifyAtMost
   , simplifyFully ) where
 
-import Expressions ( MathExpr(..), (=~=), getIntLitVal )
+import GoodCoolMath.Expressions ( MathExpr(..), (=~=), getIntLitVal )
 import Data.List ( unfoldr )
 import Data.List.NonEmpty
   ( NonEmpty((:|))

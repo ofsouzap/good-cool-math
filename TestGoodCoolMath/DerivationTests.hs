@@ -13,15 +13,8 @@ import Utils
 import GoodCoolMath
   ( MathExpr(..)
   , (=->..<-=)
-  , der
-  , zero
-  , one
-  , negOne
-  , plus
-  , minus
-  , times
-  , dividedBy
-  , sqr )
+  , der )
+import GoodCoolMath.Shorthand
 import Data.List.NonEmpty
   ( NonEmpty
   , fromList )

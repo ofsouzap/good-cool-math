@@ -1,10 +1,8 @@
 module GoodCoolMath
-  ( module Expressions
-  , module Simplification
-  , module Derivation
-  , module Shorthand ) where
+  ( module GoodCoolMath.Expressions
+  , module GoodCoolMath.Simplification
+  , module GoodCoolMath.Derivation ) where
 
-import Expressions
-import Simplification
-import Derivation
-import Shorthand
+import GoodCoolMath.Expressions
+import GoodCoolMath.Simplification
+import GoodCoolMath.Derivation

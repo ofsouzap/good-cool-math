@@ -1,4 +1,4 @@
-module Shorthand
+module GoodCoolMath.Shorthand
   ( zero
   , one
   , negOne
@@ -15,7 +15,7 @@ module Shorthand
 
 import Data.List.NonEmpty
   ( NonEmpty((:|)) )
-import Expressions
+import GoodCoolMath.Expressions
   ( MathExpr(..) )
 
 -- TODO - Change project structure so that these shorthands have to be separately imported as `GoodCoolMath.Shorthand` and aren't exported by the library `GoodCoolMath` by default

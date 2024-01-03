@@ -21,9 +21,8 @@ import GoodCoolMath
   , (=->..<-=)
   , MathExprLeaf(..)
   , unwrapExprLeaf
-  , isIntLitOf
-  , zero
-  , one )
+  , isIntLitOf )
+import GoodCoolMath.Shorthand
 
 doesntSimplify :: MathExpr -> Bool
 doesntSimplify e = ((=~= e) . simplifyFully) e
