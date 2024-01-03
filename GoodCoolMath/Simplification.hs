@@ -6,6 +6,7 @@ module Simplification
 
 import Expressions ( MathExpr(..), (=~=) )
 import Data.List ( unfoldr )
+import Data.Maybe (fromMaybe)
 
 ----------------------
 -- Shortcuts for me --
@@ -26,8 +27,11 @@ reciprocal = Frac one
 dupe :: a -> (a, a)
 dupe x = (x, x)
 
-nthOrLast :: Int -> [a] -> a
-nthOrLast n xs = last (drop (n - 1) xs)
+nthOrLast :: Int -> [a] -> Maybe a
+nthOrLast _ [] = Nothing
+nthOrLast 0 (h:_) = Just h
+nthOrLast _ [h] = Just h
+nthOrLast n (_:ts@(_:_)) = nthOrLast (n-1) ts
 
 hasZeroLit :: Foldable t => t MathExpr -> Bool
 hasZeroLit = any f where
@@ -38,6 +42,19 @@ firstJust :: Foldable t => t (Maybe a) -> Maybe a
 firstJust = foldr foldFunc Nothing where
   foldFunc x@(Just _) _ = x
   foldFunc Nothing y = y
+
+-- |Same as filterOrFail but doesn't correct the ordering of the output and will instead return the reversed output
+filterOrFailReversed :: (a -> Bool) -> [a] -> Maybe [a]
+filterOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
+  foldFunc x (state, acc)
+    | f x = (True, acc)
+    | otherwise = (state, x : acc)
+  takeOutput (False, _) = Nothing
+  takeOutput (True, xs) = Just xs
+
+-- |Filter a list but return Nothing if no elements were removed
+filterOrFail :: (a -> Bool) -> [a] -> Maybe [a]
+filterOrFail f xs = reverse <$> filterOrFailReversed f xs
 
 -----------------
 -- Derivatives --
@@ -77,12 +94,16 @@ trySimplifyStep :: MathExpr -> Maybe MathExpr
 trySimplifyStep (Neg (Neg e)) = Just e -- Negative of negative
 trySimplifyStep (Sum []) = (Just . IntLit) 0 -- Empty sum uses sum monoid empty
 trySimplifyStep e@(Sum es) = firstJust
-  [ tryExpandSumSubsums es >>= Just . Sum
-  , trySimplifyChildren e ] -- TODO - simplify 0s in sums, IntLits summed
+  [ Sum <$> tryRemoveLiteralsOfReversing 0 es -- Remove 0s from sums
+  , Sum <$> tryExpandSumSubsums es -- Flatten nested sums
+  , trySimplifyChildren e ] -- Otherwise, try simplify children
+  -- TODO - simplify 0s in sums, IntLits summed
 trySimplifyStep (Prod []) = (Just . IntLit) 1 -- Empty product uses product monoid empty
 trySimplifyStep e@(Prod es) = firstJust
-  [ tryExpandProdsSubprods es >>= Just . Prod
-  , trySimplifyChildren e ] -- TODO - simplify 0s or 1s in products, IntLits producted
+  [ Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
+  , Prod <$> tryExpandProdsSubprods es -- Flatten nested products
+  , trySimplifyChildren e ] -- Otherwise, try simplify children
+  -- TODO - simplify 0s or 1s in products, IntLits producted
 trySimplifyStep (Exp (Ln e)) = Just e -- Exponential of logarithm becomes the subexpression
 trySimplifyStep (Exp (Sum es)) = (Just . Prod . map Exp) es -- Exponential of sum becomes product of exponentials
 trySimplifyStep e = trySimplifyChildren e
@@ -95,7 +116,7 @@ simplifyingSeq e = e : unfoldr unfoldFunc e where
 
 -- |Try to simplify the given expression by performing at most the number of simplification steps specified
 simplifyAtMost :: Int -> MathExpr -> MathExpr
-simplifyAtMost maxSteps = nthOrLast maxSteps . simplifyingSeq
+simplifyAtMost maxSteps e = (fromMaybe e . nthOrLast maxSteps . simplifyingSeq) e
 
 -- |Try to simplify the expression as much as possible and return the result.
 -- NOTE: there is no guarantee that this function will terminate:
@@ -133,7 +154,7 @@ trySimplifyChildren (Exp e) = Exp <$> trySimplifyStep e
 trySimplifyChildren (Ln e) = Ln <$> trySimplifyStep e
 trySimplifyChildren _ = Nothing
 
-tryExpandSumSubsums :: [MathExpr] -> Maybe [MathExpr]
+tryExpandSumSubsums :: [MathExpr] -> Maybe [MathExpr] -- TODO - abstract out the pattern, like below
 tryExpandSumSubsums = takeOutput . aux (False, []) where
   aux :: (Bool, [MathExpr]) -> [MathExpr] -> (Bool, [MathExpr])
   aux (valid, acc) [] = (valid, acc)
@@ -143,7 +164,7 @@ tryExpandSumSubsums = takeOutput . aux (False, []) where
   takeOutput (False, _) = Nothing
   takeOutput (True, xs) = Just xs
 
-tryExpandProdsSubprods :: [MathExpr] -> Maybe [MathExpr]
+tryExpandProdsSubprods :: [MathExpr] -> Maybe [MathExpr] -- TODO - abstract out the pattern, like above
 tryExpandProdsSubprods = takeOutput . aux (False, []) where
   aux :: (Bool, [MathExpr]) -> [MathExpr] -> (Bool, [MathExpr])
   aux (valid, acc) [] = (valid, acc)
@@ -153,3 +174,11 @@ tryExpandProdsSubprods = takeOutput . aux (False, []) where
   takeOutput (False, _) = Nothing
   takeOutput (True, xs) = Just xs
 
+-- |Remove from a list of math expressions any elements that are integer literals of the specified value.
+-- Return Nothing if none found
+tryRemoveLiteralsOfReversing :: Int -> [MathExpr] -> Maybe [MathExpr]
+tryRemoveLiteralsOfReversing n = filterOrFail filterFunc where
+  filterFunc (IntLit x)
+    | x == n = True
+    | otherwise = False
+  filterFunc _ = False
