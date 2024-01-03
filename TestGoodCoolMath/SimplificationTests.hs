@@ -56,6 +56,7 @@ spec = do
         \ (es1', es2') -> Sum (map unwrapNonZeroIntLitMathExpr es1' ++ [IntLit 0] ++ map unwrapNonZeroIntLitMathExpr es2') =->..<-= Sum (map unwrapNonZeroIntLitMathExpr es1' ++ map unwrapNonZeroIntLitMathExpr es2')
       it "should remove them when there are many" $ property $
         \ (WithWithoutIntLitZeroMathExprs (xs, ys)) -> Sum xs =->..<-= Sum ys
+    -- TODO - test combining int literals in sum
     describe "when a product has a product as a child" $ do
       it "should expand it if it is the first item" $ property $
         \ es1 es2 -> Prod (Prod es1 : es2) =->..<-= Prod (es1 ++ es2)
@@ -68,6 +69,10 @@ spec = do
         \ (es1', es2') -> Prod (map unwrapNonOneIntLitMathExpr es1' ++ [IntLit 1] ++ map unwrapNonOneIntLitMathExpr es2') =->..<-= Prod (map unwrapNonOneIntLitMathExpr es1' ++ map unwrapNonOneIntLitMathExpr es2')
       it "should remove them when there are many" $ property $
         \ (WithWithoutIntLitOneMathExprs (xs, ys)) -> Prod xs =->..<-= Prod ys
+    -- TODO - test combining int literals in sum
+    -- describe "when a product has multiple sums in it" $ do
+    --   it "should expand them into a single sum" $ property $
+    --     \ (SumsAndWithWithout (sumTerms, xs, others)) -> Prod xs =->..<-= Prod ((Sum . concat) sumTerms : others)
     describe "with an exponential" $ do
       it "should simplify a logarithm exponent to the subexpression" $ property $
         \ e -> e =->..<-= Exp (Ln e)

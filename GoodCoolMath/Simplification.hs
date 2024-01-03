@@ -9,18 +9,7 @@ import Data.List ( unfoldr )
 import Data.Maybe (fromMaybe)
 import qualified Data.Monoid ( Sum(Sum), Product(Product) )
 import Data.Monoid (Sum(getSum), Product (getProduct))
-
-----------------------
--- Shortcuts for me --
-----------------------
-
-zero, one, negOne :: MathExpr
-zero = IntLit 0
-one = IntLit 1
-negOne = Neg one
-
-reciprocal :: MathExpr -> MathExpr
-reciprocal = Frac one
+import Control.Arrow ( (***) )
 
 -----------------------
 -- Utility functions --
@@ -39,6 +28,14 @@ firstJust :: Foldable t => t (Maybe a) -> Maybe a
 firstJust = foldr foldFunc Nothing where
   foldFunc x@(Just _) _ = x
   foldFunc Nothing y = y
+
+-- | Find all the combinations possible by taking one item from each list
+allCombs :: [[a]] -> [[a]]
+allCombs [] = [[]]
+allCombs (hs:tss) = do
+  h <- hs
+  ts <- allCombs tss
+  return (h : ts)
 
 -- | Same as mapOrFail but doesn't correct the ordering of the output and will instead return the reversed output
 mapOrFailReversed :: (a -> (Bool, b)) -> [a] -> Maybe [b]
@@ -79,33 +76,6 @@ monoidPartitionAccumulateWithCountReversing partitioner = foldr foldFunc (0, mem
 monoidPartitionAccumulateWithCount :: (Monoid m, Foldable t) => (a -> Maybe m) -> t a -> (Int, m, [a])
 monoidPartitionAccumulateWithCount = fmap (\ (n, m, xs) -> (n, m, reverse xs)) . monoidPartitionAccumulateWithCount
 
------------------
--- Derivatives --
------------------
-
--- | Take derivative of an expression
-der :: String -> MathExpr -> MathExpr
-der _ (IntLit _) = zero
-der dVar (Var var)
-  | dVar == var = one
-  | otherwise = zero
-der dVar (Neg x) = (Neg . der dVar) x
-der dVar (Sum es) = (Sum . map (der dVar)) es
-der dVar (Prod es) = (Sum . concat . aux []) es where -- assumes commutativity of addition and multplication
-  aux :: [MathExpr] -> [MathExpr] -> [[MathExpr]]
-  aux _ [] = []
-  aux prevs (h:ts) = (der dVar h : prevs ++ ts) : aux (h : prevs) ts
-der dVar (Frac num den) = Frac
-  ( Sum
-    [ Prod [der dVar num, den]
-    , Neg (Prod [num, der dVar den]) ] )
-  ( Prod [den, den] )
-der dVar (Exp x) = Prod
-  [ x
-  , Exp (Sum [x, negOne])
-  , der dVar x ]
-der dVar (Ln x) = Frac (der dVar x) x
-
 -------------------------------
 -- Expression simplification --
 -------------------------------
@@ -124,10 +94,10 @@ trySimplifyStep e@(Sum es) = firstJust
 trySimplifyStep (Prod []) = (Just . IntLit) 1 -- Empty product uses product monoid empty
 trySimplifyStep e@(Prod es) = firstJust
   [ Prod <$> tryExpandProdsSubprods es -- Flatten nested products
+  , Prod <$> tryExpandProdOfSums es -- "Multiply out" product-of-sums
   , Prod <$> tryCollectProdIntLits es -- Collect integer literal terms together
   , Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
   , trySimplifyChildren e ] -- Otherwise, try simplify children
-  -- TODO - multiply out product-of-sums terms
 trySimplifyStep (Exp (Ln e)) = Just e -- Exponential of logarithm becomes the subexpression
 trySimplifyStep (Exp (Sum es)) = (Just . Prod . map Exp) es -- Exponential of sum becomes product of exponentials
 trySimplifyStep e = trySimplifyChildren e
@@ -201,9 +171,9 @@ tryRemoveLiteralsOfReversing n = filterOrFailReversed filterFunc where
 -- If less than two integer literal terms found, returns Nothing
 tryCollectSumIntLits :: [MathExpr] -> Maybe [MathExpr]
 tryCollectSumIntLits = aux . trySumIntLitsReversing where
-  aux (0, _, _) = Nothing
-  aux (1, _, _) = Nothing
-  aux (_, s, xs) = Just ((IntLit . getSum) s : xs)
+  aux (n, s, xs)
+    | n >= 2 = Just ((IntLit . getSum) s : xs)
+    | otherwise = Nothing
 
 trySumIntLitsReversing :: [MathExpr] -> (Int, Data.Monoid.Sum Int, [MathExpr])
 trySumIntLitsReversing = monoidPartitionAccumulateWithCountReversing (fmap Data.Monoid.Sum . getIntLitVal)
@@ -212,9 +182,26 @@ trySumIntLitsReversing = monoidPartitionAccumulateWithCountReversing (fmap Data.
 -- If less than two integer literal terms found, returns Nothing
 tryCollectProdIntLits :: [MathExpr] -> Maybe [MathExpr]
 tryCollectProdIntLits = aux . tryProdIntLitsReversing where
-  aux (0, _, _) = Nothing
-  aux (1, _, _) = Nothing
-  aux (_, p, xs) = Just ((IntLit . getProduct) p : xs)
+  aux (n, p, xs)
+    | n >= 2 = Just ((IntLit . getProduct) p : xs)
+    | otherwise = Nothing
 
 tryProdIntLitsReversing :: [MathExpr] -> (Int, Data.Monoid.Product Int, [MathExpr])
 tryProdIntLitsReversing = monoidPartitionAccumulateWithCountReversing (fmap Data.Monoid.Product . getIntLitVal)
+
+-- | Take sub-expressions of a product and "multiply out" any sum terms with each other
+tryExpandProdOfSums :: [MathExpr] -> Maybe [MathExpr]
+tryExpandProdOfSums = fmap (uncurry (++) . (***) multiplyOutSumTerms id) . partitionSumsAndIntLits
+
+partitionSumsAndIntLits :: [MathExpr] -> Maybe ([[MathExpr]], [MathExpr])
+partitionSumsAndIntLits = takeOutput . monoidPartitionAccumulateWithCountReversing partFunc where
+  partFunc :: MathExpr -> Maybe [[MathExpr]]
+  partFunc (Sum es) = Just [es]
+  partFunc _ = Nothing
+  takeOutput :: (Int, [[MathExpr]], [MathExpr]) -> Maybe ([[MathExpr]], [MathExpr])
+  takeOutput (n, sums, rems)
+    | n >= 2 = Just (sums, rems)
+    | otherwise = Nothing
+
+multiplyOutSumTerms :: [[MathExpr]] -> [MathExpr]
+multiplyOutSumTerms = map Prod . allCombs

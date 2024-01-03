@@ -8,6 +8,10 @@ import Test.QuickCheck
   , suchThat )
 import GoodCoolMath
 
+isSumTerm :: MathExpr -> Bool
+isSumTerm (Sum _) = True
+isSumTerm _ = False
+
 -- Shuffled and unshuffled list pairs
 
 newtype ShuffledList a = ShuffledList [a]
@@ -87,3 +91,25 @@ instance Arbitrary WithWithoutIntLitOneMathExprs where
     shuffledXs <- shuffle (unwrapIntLitOneList zeros ++ map unwrapNonOneIntLitMathExpr others)
     shuffledYs <- shuffle (map unwrapNonOneIntLitMathExpr others)
     return $ WithWithoutIntLitOneMathExprs (shuffledXs, shuffledYs)
+
+-- A list of summed terms, a MathExpr list containing the sums and the list without the sums
+
+newtype NonSumMathExpr = NonSumMathExpr MathExpr
+
+unwrapNonSumMathExpr :: NonSumMathExpr -> MathExpr
+unwrapNonSumMathExpr (NonSumMathExpr e) = e
+
+instance Arbitrary NonSumMathExpr where
+  arbitrary = NonSumMathExpr <$> suchThat (arbitrary :: Gen MathExpr) (not . isSumTerm)
+
+newtype SumsAndWithWithout = SumsAndWithWithout ([[MathExpr]], [MathExpr], [MathExpr])
+  deriving ( Show )
+
+instance Arbitrary SumsAndWithWithout where
+  arbitrary = do
+    sumTerms <- (arbitrary :: Gen [[MathExpr]])
+    let sums = map Sum sumTerms
+    othersWrapped <- (arbitrary :: Gen [NonSumMathExpr])
+    let others = map unwrapNonSumMathExpr othersWrapped
+    shuffled <- shuffle (sums ++ others)
+    (return . SumsAndWithWithout) (sumTerms, shuffled, others)
