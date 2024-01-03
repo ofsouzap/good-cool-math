@@ -12,7 +12,8 @@ import Data.List.NonEmpty
   , nonEmpty )
 import qualified Data.List.NonEmpty as NonEmpty
   ( map
-  , appendList )
+  , appendList
+  , last )
 import Data.Maybe (fromMaybe)
 import qualified Data.Monoid ( Sum(Sum), Product(Product) )
 import Data.Monoid (Sum(getSum), Product (getProduct))
@@ -26,11 +27,10 @@ import Data.Semigroup (Semigroup(sconcat))
 dupe :: a -> (a, a)
 dupe x = (x, x)
 
-nthOrLast :: Int -> [a] -> Maybe a
-nthOrLast _ [] = Nothing
-nthOrLast 0 (h:_) = Just h
-nthOrLast _ [h] = Just h
-nthOrLast n (_:ts@(_:_)) = nthOrLast (n-1) ts
+nthOrLastNonEmpty :: Int -> NonEmpty a -> Maybe a
+nthOrLastNonEmpty 0 (h:|_) = Just h
+nthOrLastNonEmpty _ (h:|[]) = Just h
+nthOrLastNonEmpty n (_:|(th:tts)) = nthOrLastNonEmpty (n-1) (th:|tts)
 
 firstJust :: Foldable t => t (Maybe a) -> Maybe a
 firstJust = foldr foldFunc Nothing where
@@ -110,20 +110,20 @@ trySimplifyStep (Exp (Sum es)) = (Just . Prod . NonEmpty.map Exp) es -- Exponent
 trySimplifyStep e = trySimplifyChildren e
 
 -- | The sequence of simplifying steps in the process of simplifying an expression
-simplifyingSeq :: MathExpr -> [MathExpr] -- TODO - change to returning a NonEmpty
-simplifyingSeq e = e : unfoldr unfoldFunc e where
+simplifyingSeq :: MathExpr -> NonEmpty MathExpr
+simplifyingSeq e = e :| unfoldr unfoldFunc e where
   unfoldFunc :: MathExpr -> Maybe (MathExpr, MathExpr)
   unfoldFunc e' = trySimplifyStep e' >>= Just . dupe
 
 -- | Try to simplify the given expression by performing at most the number of simplification steps specified
 simplifyAtMost :: Int -> MathExpr -> MathExpr
-simplifyAtMost maxSteps e = (fromMaybe e . nthOrLast maxSteps . simplifyingSeq) e
+simplifyAtMost maxSteps e = (fromMaybe e . nthOrLastNonEmpty maxSteps . simplifyingSeq) e
 
 -- | Try to simplify the expression as much as possible and return the result.
 -- NOTE: there is no guarantee that this function will terminate:
 -- depending on how the simplification is implemented, this function could end up running forever
 simplifyFully :: MathExpr -> MathExpr
-simplifyFully = last . simplifyingSeq
+simplifyFully = NonEmpty.last . simplifyingSeq
 
 -- | Test if two expressions fully simplify to the same result
 -- NOTE: this may not terminate if the simplification process doesn't terminate
@@ -136,12 +136,11 @@ e1 =->..<-= e2 = simplifyFully e1 =~= simplifyFully e2
 
 -- | Simplify the first expression in a list that can be simplified
 trySimplifyExprList :: NonEmpty MathExpr -> Maybe (NonEmpty MathExpr)
--- trySimplifyExprList = aux [] where
-trySimplifyExprList = aux where
-  aux :: NonEmpty MathExpr -> Maybe (NonEmpty MathExpr) -- TODO - optimise with tail recursion
-  aux (eh:|ets) = case (trySimplifyStep eh, ets) of
-    (Just eh', ets') -> Just (eh':|ets')
-    (Nothing, eth:etts) -> (<|) eh <$> aux (eth:|etts)
+trySimplifyExprList = aux [] where
+  aux :: [MathExpr] -> NonEmpty MathExpr -> Maybe (NonEmpty MathExpr)
+  aux acc (eh:|ets) = case (trySimplifyStep eh, ets) of
+    (Just eh', ets') -> Just (eh' :| (ets'<>acc))
+    (Nothing, eth:etts) -> aux (eh:acc) (eth:|etts)
     (Nothing, []) -> Nothing
 
 -- | Try to simplify a subexpression of an expression
@@ -157,13 +156,13 @@ trySimplifyChildren (Ln e) = Ln <$> trySimplifyStep e
 trySimplifyChildren _ = Nothing
 
 tryExpandSumSubsums :: NonEmpty MathExpr -> Maybe (NonEmpty MathExpr)
-tryExpandSumSubsums xs = sconcat <$> (mapOrFailReversed mapFunc xs >>= nonEmpty) where -- TODO - Think about if can write more concisely
+tryExpandSumSubsums = fmap sconcat . (=<<) nonEmpty . mapOrFailReversed mapFunc where
   mapFunc :: MathExpr -> (Bool, NonEmpty MathExpr)
   mapFunc (Sum es) = (True, es)
   mapFunc e = (False, pure e)
 
 tryExpandProdsSubprods :: NonEmpty MathExpr -> Maybe (NonEmpty MathExpr)
-tryExpandProdsSubprods xs = sconcat <$> (mapOrFailReversed mapFunc xs >>= nonEmpty) where -- TODO - Think about if can write more concisely
+tryExpandProdsSubprods = fmap sconcat . (=<<) nonEmpty . mapOrFailReversed mapFunc where
   mapFunc :: MathExpr -> (Bool, NonEmpty MathExpr)
   mapFunc (Prod es) = (True, es)
   mapFunc e = (False, pure e)
@@ -171,7 +170,7 @@ tryExpandProdsSubprods xs = sconcat <$> (mapOrFailReversed mapFunc xs >>= nonEmp
 -- | Remove from a list of math expressions any elements that are integer literals of the specified value.
 -- Return Nothing if none found
 tryRemoveLiteralsOfReversing :: Int -> NonEmpty MathExpr -> Maybe (NonEmpty MathExpr)
-tryRemoveLiteralsOfReversing n xs = filterOrFailReversed filterFunc xs >>= nonEmpty where -- TODO - Think about if can write more concisely
+tryRemoveLiteralsOfReversing n = (=<<) nonEmpty . filterOrFailReversed filterFunc where
   filterFunc (IntLit x)
     | x == n = True
     | otherwise = False
