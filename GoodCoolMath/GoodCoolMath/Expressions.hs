@@ -28,7 +28,7 @@ bracketedShow :: Show a => a -> String
 bracketedShow x = "(" ++ show x ++ ")"
 
 data MathExpr =
-    IntLit Int
+    IntLit Int -- TODO - constants that aren't necessarily int-valued. Could be named with a string, could be just named (eg. pi)
   | Var String
   | Neg MathExpr
   | Sum (NonEmpty MathExpr)

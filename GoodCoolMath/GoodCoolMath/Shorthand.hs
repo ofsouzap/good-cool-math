@@ -1,36 +1,37 @@
-module GoodCoolMath.Shorthand
-  ( zero
-  , one
-  , negOne
-  , plus
-  , minus
-  , times
-  , dividedBy
-  , sqr
-  , cube
-  , unsafeIntPowAsProd
-  , pow
-  , reciprocal
-  , unsafeFact ) where
+module GoodCoolMath.Shorthand where
 
 import Data.List.NonEmpty
   ( NonEmpty((:|)) )
 import GoodCoolMath.Expressions
   ( MathExpr(..) )
 
--- TODO - Change project structure so that these shorthands have to be separately imported as `GoodCoolMath.Shorthand` and aren't exported by the library `GoodCoolMath` by default
+-- | An integer literal
+int :: Int -> MathExpr
+int = IntLit
 
 -- | The integer literal for zero
 zero :: MathExpr
-zero = IntLit 0
+zero = int 0
 
 -- | The integer literal for one
 one :: MathExpr
-one = IntLit 1
+one = int 1
+
+-- | The integer literal for two
+two :: MathExpr
+two = int 2
+
+-- | The negative of an expression
+neg :: MathExpr -> MathExpr
+neg = Neg
 
 -- | Negative one
 negOne :: MathExpr
-negOne = Neg one
+negOne = neg one
+
+-- | The fraction for a half (1/2)
+half :: MathExpr
+half = Frac one two
 
 -- | Sum of two expressions
 plus :: MathExpr -> MathExpr -> MathExpr
@@ -66,9 +67,15 @@ unsafeIntPowAsProd n e
   | n == 1 = e
   | otherwise = Prod (e :| [e | _ <- [2..n]])
 
--- | b^n == exp(n * ln b)
+-- | An expression to the power of another
+-- b^n == exp(n * ln b)
 pow :: MathExpr -> MathExpr -> MathExpr
-pow b n = Exp (Prod (n :| [Ln b]))
+pow b n = Exp (n `times` Ln b)
+
+-- | Square root of an expression
+-- sqrt(x) == x^(1/2)
+sqrt :: MathExpr -> MathExpr
+sqrt = flip pow half
 
 reciprocal :: MathExpr -> MathExpr
 reciprocal = Frac one
@@ -81,4 +88,4 @@ unsafeFact 0 = one
 unsafeFact 1 = one
 unsafeFact n
   | n < 0 = error "n must be non-negative"
-  | otherwise = Prod (IntLit n :| [IntLit i | i <- [1..(n-1)]])
+  | otherwise = Prod (int n :| [int i | i <- [1..(n-1)]])
