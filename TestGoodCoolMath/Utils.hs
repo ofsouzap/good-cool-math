@@ -1,5 +1,11 @@
 module Utils where
 
+import Data.List.NonEmpty
+  ( NonEmpty((:|))
+  , toList
+  , fromList )
+import qualified Data.List.NonEmpty as NonEmpty
+  ( map )
 import Test.QuickCheck
   ( Arbitrary
   , Gen
@@ -12,19 +18,28 @@ isSumTerm :: MathExpr -> Bool
 isSumTerm (Sum _) = True
 isSumTerm _ = False
 
--- Shuffled and unshuffled list pairs
+shuffleNonEmpty :: NonEmpty a -> Gen (NonEmpty a)
+shuffleNonEmpty = fmap fromList . (shuffle . toList)
 
-newtype ShuffledList a = ShuffledList [a]
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+  arbitrary = do
+    h <- arbitrary
+    ts <- arbitrary
+    return (h :| ts)
+
+-- Shuffled and unshuffled non-empty list pairs
+
+newtype ShuffledNonEmpty a = ShuffledNonEmpty (NonEmpty a)
   deriving ( Show )
 
-newtype ShufflePair a = ShufflePair ([a], ShuffledList a)
+newtype ShufflePair a = ShufflePair (NonEmpty a, ShuffledNonEmpty a)
   deriving ( Show )
 
 instance Arbitrary a => Arbitrary (ShufflePair a) where
   arbitrary = do
     xs <- arbitrary
-    ys <- shuffle xs
-    (return . ShufflePair) (xs, ShuffledList ys)
+    ys <- shuffleNonEmpty xs
+    (return . ShufflePair) (xs, ShuffledNonEmpty ys)
 
 -- MathExpr that isn't IntLit 0
 
@@ -50,46 +65,46 @@ instance Arbitrary NonOneIntLitMathExpr where
 
 -- MathExpr list containing IntLit 0s paired with not containing them
 
-newtype IntLitZeroList = IntLitZeroList [MathExpr]
+newtype IntLitZeroNonEmpty = IntLitZeroNonEmpty (NonEmpty MathExpr)
   deriving ( Show )
 
-unwrapIntLitZeroList :: IntLitZeroList -> [MathExpr]
-unwrapIntLitZeroList (IntLitZeroList es) = es
+unwrapIntLitZeroNonEmpty :: IntLitZeroNonEmpty -> NonEmpty MathExpr
+unwrapIntLitZeroNonEmpty (IntLitZeroNonEmpty es) = es
 
-instance Arbitrary IntLitZeroList where
-  arbitrary = IntLitZeroList . map (const (IntLit 0)) <$> (arbitrary :: Gen [MathExpr])
+instance Arbitrary IntLitZeroNonEmpty where
+  arbitrary = IntLitZeroNonEmpty . NonEmpty.map (const (IntLit 0)) <$> (arbitrary :: Gen (NonEmpty MathExpr))
 
-newtype WithWithoutIntLitZeroMathExprs = WithWithoutIntLitZeroMathExprs ([MathExpr], [MathExpr])
+newtype WithWithoutIntLitZeroMathExprs = WithWithoutIntLitZeroMathExprs (NonEmpty MathExpr, NonEmpty MathExpr)
   deriving ( Show )
 
 instance Arbitrary WithWithoutIntLitZeroMathExprs where
   arbitrary = do
-    zeros <- (arbitrary :: Gen IntLitZeroList)
-    others <- (arbitrary :: Gen [NonZeroIntLitMathExpr])
-    shuffledXs <- shuffle (unwrapIntLitZeroList zeros ++ map unwrapNonZeroIntLitMathExpr others)
-    shuffledYs <- shuffle (map unwrapNonZeroIntLitMathExpr others)
-    return $ WithWithoutIntLitZeroMathExprs (shuffledXs, shuffledYs)
+    zeros <- (arbitrary :: Gen IntLitZeroNonEmpty)
+    others <- (arbitrary :: Gen (NonEmpty NonZeroIntLitMathExpr))
+    shuffledXs <- shuffleNonEmpty (unwrapIntLitZeroNonEmpty zeros <> NonEmpty.map unwrapNonZeroIntLitMathExpr others)
+    shuffledYs <- shuffleNonEmpty (NonEmpty.map unwrapNonZeroIntLitMathExpr others)
+    (return . WithWithoutIntLitZeroMathExprs) (shuffledXs, shuffledYs)
 
 -- MathExpr list containing IntLit 0s paired with not containing them
 
-newtype IntLitOneList = IntLitOneList [MathExpr]
+newtype IntLitOneNonEmpty = IntLitOneNonEmpty (NonEmpty MathExpr)
   deriving ( Show )
 
-unwrapIntLitOneList :: IntLitOneList -> [MathExpr]
-unwrapIntLitOneList (IntLitOneList es) = es
+unwrapIntLitOneNonEmpty :: IntLitOneNonEmpty -> NonEmpty MathExpr
+unwrapIntLitOneNonEmpty (IntLitOneNonEmpty es) = es
 
-instance Arbitrary IntLitOneList where
-  arbitrary = IntLitOneList . map (const (IntLit 1)) <$> (arbitrary :: Gen [MathExpr])
+instance Arbitrary IntLitOneNonEmpty where
+  arbitrary = IntLitOneNonEmpty . NonEmpty.map (const (IntLit 1)) <$> (arbitrary :: Gen (NonEmpty MathExpr))
 
-newtype WithWithoutIntLitOneMathExprs = WithWithoutIntLitOneMathExprs ([MathExpr], [MathExpr])
+newtype WithWithoutIntLitOneMathExprs = WithWithoutIntLitOneMathExprs (NonEmpty MathExpr, NonEmpty MathExpr)
   deriving ( Show )
 
 instance Arbitrary WithWithoutIntLitOneMathExprs where
   arbitrary = do
-    zeros <- (arbitrary :: Gen IntLitOneList)
-    others <- (arbitrary :: Gen [NonOneIntLitMathExpr])
-    shuffledXs <- shuffle (unwrapIntLitOneList zeros ++ map unwrapNonOneIntLitMathExpr others)
-    shuffledYs <- shuffle (map unwrapNonOneIntLitMathExpr others)
+    zeros <- (arbitrary :: Gen IntLitOneNonEmpty)
+    others <- (arbitrary :: Gen (NonEmpty NonOneIntLitMathExpr))
+    shuffledXs <- shuffleNonEmpty (unwrapIntLitOneNonEmpty zeros <> NonEmpty.map unwrapNonOneIntLitMathExpr others)
+    shuffledYs <- shuffleNonEmpty (NonEmpty.map unwrapNonOneIntLitMathExpr others)
     return $ WithWithoutIntLitOneMathExprs (shuffledXs, shuffledYs)
 
 -- A list of summed terms, a MathExpr list containing the sums and the list without the sums
@@ -102,12 +117,12 @@ unwrapNonSumMathExpr (NonSumMathExpr e) = e
 instance Arbitrary NonSumMathExpr where
   arbitrary = NonSumMathExpr <$> suchThat (arbitrary :: Gen MathExpr) (not . isSumTerm)
 
-newtype SumsAndWithWithout = SumsAndWithWithout ([[MathExpr]], [MathExpr], [MathExpr])
+newtype SumsAndWithWithout = SumsAndWithWithout ([NonEmpty MathExpr], [MathExpr], [MathExpr])
   deriving ( Show )
 
 instance Arbitrary SumsAndWithWithout where
   arbitrary = do
-    sumTerms <- (arbitrary :: Gen [[MathExpr]])
+    sumTerms <- (arbitrary :: Gen [NonEmpty MathExpr])
     let sums = map Sum sumTerms
     othersWrapped <- (arbitrary :: Gen [NonSumMathExpr])
     let others = map unwrapNonSumMathExpr othersWrapped

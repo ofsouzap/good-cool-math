@@ -9,12 +9,20 @@ module Expressions
   , isIntLit
   , getIntLitVal ) where
 
-import Data.List ( intercalate, sort )
+import Data.List.NonEmpty
+  ( NonEmpty((:|))
+  , intersperse )
+import qualified Data.List.NonEmpty as NonEmpty
+  ( map
+  , sort
+  , toList
+  , zip )
 import Test.QuickCheck
   ( Arbitrary
   , Gen
   , arbitrary
   , elements )
+import Data.Semigroup (Semigroup(sconcat))
 
 bracketedShow :: Show a => a -> String
 bracketedShow x = "(" ++ show x ++ ")"
@@ -23,8 +31,8 @@ data MathExpr =
     IntLit Int
   | Var String
   | Neg MathExpr
-  | Sum [MathExpr]
-  | Prod [MathExpr]
+  | Sum (NonEmpty MathExpr)
+  | Prod (NonEmpty MathExpr)
   | Frac MathExpr MathExpr
   | Exp MathExpr
   | Ln MathExpr
@@ -33,8 +41,8 @@ instance Show MathExpr where
   show (IntLit x) = show x
   show (Var vName) = vName
   show (Neg m) = "-" ++ bracketedShow m
-  show (Sum m) = (intercalate "+" . map bracketedShow) m
-  show (Prod m) = (intercalate "*" . map bracketedShow) m
+  show (Sum m) = (sconcat . intersperse "+" . NonEmpty.map bracketedShow) m
+  show (Prod m) = (sconcat . intersperse "*"  . NonEmpty.map bracketedShow) m
   show (Frac num den) = bracketedShow num ++ "/" ++ bracketedShow den
   show (Exp x) = "e^" ++ bracketedShow x
   show (Ln x) = "ln" ++ bracketedShow x
@@ -70,11 +78,11 @@ IntLit a =~= IntLit b = a == b
 Var a =~= Var b = a == b
 Neg e1 =~= Neg e2 = e1 =~= e2
 Sum es1 =~= Sum es2 = exprListStructEqual
-  ((map unwrapOrderedExpr . sort . map OrderedMathExpr) es1)
-  ((map unwrapOrderedExpr . sort . map OrderedMathExpr) es2)
+  ((NonEmpty.toList . NonEmpty.map unwrapOrderedExpr . NonEmpty.sort . NonEmpty.map OrderedMathExpr) es1)
+  ((NonEmpty.toList . NonEmpty.map unwrapOrderedExpr . NonEmpty.sort . NonEmpty.map OrderedMathExpr) es2)
 Prod es1 =~= Prod es2 = exprListStructEqual
-  ((map unwrapOrderedExpr . sort . map OrderedMathExpr) es1)
-  ((map unwrapOrderedExpr . sort . map OrderedMathExpr) es2)
+  ((NonEmpty.toList . NonEmpty.map unwrapOrderedExpr . NonEmpty.sort . NonEmpty.map OrderedMathExpr) es1)
+  ((NonEmpty.toList . NonEmpty.map unwrapOrderedExpr . NonEmpty.sort . NonEmpty.map OrderedMathExpr) es2)
 Frac e11 e12 =~= Frac e21 e22 = e11 =~= e21 && e12 =~= e22
 Exp e1 =~= Exp e2 = e1 =~= e2
 Ln e1 =~= Ln e2 = e1 =~= e2
@@ -123,8 +131,12 @@ instance Eq OrderedMathExpr where
   OrderedMathExpr (IntLit a) == OrderedMathExpr (IntLit b) = a == b
   OrderedMathExpr (Var a) == OrderedMathExpr (Var b) = a == b
   OrderedMathExpr (Neg e1) == OrderedMathExpr (Neg e2) = OrderedMathExpr e1 == OrderedMathExpr e2
-  OrderedMathExpr (Sum es1) == OrderedMathExpr (Sum es2) = length es1 == length es2 && all (uncurry (==)) (zip (map OrderedMathExpr es1) (map OrderedMathExpr es2))
-  OrderedMathExpr (Prod es1) == OrderedMathExpr (Prod es2) = length es1 == length es2 && all (uncurry (==)) (zip (map OrderedMathExpr es1) (map OrderedMathExpr es2))
+  OrderedMathExpr (Sum es1) == OrderedMathExpr (Sum es2) =
+    length es1 == length es2
+    && all (uncurry (==)) (NonEmpty.zip (NonEmpty.map OrderedMathExpr es1) (NonEmpty.map OrderedMathExpr es2))
+  OrderedMathExpr (Prod es1) == OrderedMathExpr (Prod es2) =
+    length es1 == length es2
+    && all (uncurry (==)) (NonEmpty.zip (NonEmpty.map OrderedMathExpr es1) (NonEmpty.map OrderedMathExpr es2))
   OrderedMathExpr (Frac e11 e12) == OrderedMathExpr (Frac e21 e22) = OrderedMathExpr e11 == OrderedMathExpr e21 && OrderedMathExpr e12 == OrderedMathExpr e22
   OrderedMathExpr (Exp e1) == OrderedMathExpr (Exp e2) = OrderedMathExpr e1 == OrderedMathExpr e2
   OrderedMathExpr (Ln e1) == OrderedMathExpr (Ln e2) = OrderedMathExpr e1 == OrderedMathExpr e2
@@ -136,16 +148,16 @@ instance Ord OrderedMathExpr where
   OrderedMathExpr (IntLit a) <= OrderedMathExpr (IntLit b) = a <= b
   OrderedMathExpr (Var a) <= OrderedMathExpr (Var b) = a <= b
   OrderedMathExpr (Neg e1) <= OrderedMathExpr (Neg e2) = OrderedMathExpr e1 <= OrderedMathExpr e2
-  OrderedMathExpr (Sum []) <= OrderedMathExpr (Sum _) = True
-  OrderedMathExpr (Sum (_:_)) <= OrderedMathExpr (Sum []) = False
-  OrderedMathExpr (Sum (xh:xts)) <= OrderedMathExpr (Sum (yh:yts)) = case compare (OrderedMathExpr xh) (OrderedMathExpr yh) of
-    EQ -> OrderedMathExpr (Sum xts) <= OrderedMathExpr (Sum yts)
+  OrderedMathExpr (Sum (_:|[])) <= OrderedMathExpr (Sum _) = True
+  OrderedMathExpr (Sum (_:|(_:_))) <= OrderedMathExpr (Sum (_:|[])) = False
+  OrderedMathExpr (Sum (xh:|(xth:xtts))) <= OrderedMathExpr (Sum (yh:|(yth:ytts))) = case compare (OrderedMathExpr xh) (OrderedMathExpr yh) of
+    EQ -> OrderedMathExpr (Sum (xth:|xtts)) <= OrderedMathExpr (Sum (yth:|ytts))
     LT -> True
     GT -> False
-  OrderedMathExpr (Prod []) <= OrderedMathExpr (Prod _) = True
-  OrderedMathExpr (Prod (_:_)) <= OrderedMathExpr (Prod []) = False
-  OrderedMathExpr (Prod (xh:xts)) <= OrderedMathExpr (Prod (yh:yts)) = case compare (OrderedMathExpr xh) (OrderedMathExpr yh) of
-    EQ -> OrderedMathExpr (Prod xts) <= OrderedMathExpr (Prod yts)
+  OrderedMathExpr (Prod (_:|[])) <= OrderedMathExpr (Prod _) = True
+  OrderedMathExpr (Prod (_:|(_:_))) <= OrderedMathExpr (Prod (_:|[])) = False
+  OrderedMathExpr (Prod (xh:|(xth:xtts))) <= OrderedMathExpr (Prod (yh:|(yth:ytts))) = case compare (OrderedMathExpr xh) (OrderedMathExpr yh) of
+    EQ -> OrderedMathExpr (Prod (xth:|xtts)) <= OrderedMathExpr (Prod (yth:|ytts))
     LT -> True
     GT -> False
   OrderedMathExpr (Frac e11 e12) <= OrderedMathExpr (Frac e21 e22) = case compare (OrderedMathExpr e11) (OrderedMathExpr e21) of

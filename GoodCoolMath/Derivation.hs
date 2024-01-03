@@ -1,6 +1,8 @@
 module Derivation
   ( der ) where
 
+import qualified Data.List.NonEmpty as NonEmpty
+  ( map )
 import Expressions ( MathExpr(..) )
 
 ----------------------
@@ -26,18 +28,8 @@ der dVar (Var var)
   | dVar == var = one
   | otherwise = zero
 der dVar (Neg x) = (Neg . der dVar) x
-der dVar (Sum es) = (Sum . map (der dVar)) es
-der dVar (Prod es) = (Sum . concat . aux []) es where -- assumes commutativity of addition and multplication
-  aux :: [MathExpr] -> [MathExpr] -> [[MathExpr]]
-  aux _ [] = []
-  aux prevs (h:ts) = (der dVar h : prevs ++ ts) : aux (h : prevs) ts
-der dVar (Frac num den) = Frac
-  ( Sum
-    [ Prod [der dVar num, den]
-    , Neg (Prod [num, der dVar den]) ] )
-  ( Prod [den, den] )
-der dVar (Exp x) = Prod
-  [ x
-  , Exp (Sum [x, negOne])
-  , der dVar x ]
+der dVar (Sum es) = (Sum . NonEmpty.map (der dVar)) es
+der _ (Prod _) = undefined -- TODO
+der _ (Frac _ _) = undefined -- TODO
+der _ (Exp _) = undefined -- TODO
 der dVar (Ln x) = Frac (der dVar x) x

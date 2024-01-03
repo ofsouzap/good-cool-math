@@ -24,11 +24,11 @@ spec = do
       it "should equate sums of the same list with same ordering" $ property $
         \ es -> Sum es =~= Sum es
       it "should equate sums of the same list even when permuted" $ property $
-        \ (ShufflePair (xs, ShuffledList ys)) -> Sum xs =~= Sum ys
+        \ (ShufflePair (xs, ShuffledNonEmpty ys)) -> Sum xs =~= Sum ys
       it "should equate products of the same list with same ordering" $ property $
         \ es -> Prod es =~= Prod es
       it "should equate products of the same list even when permuted" $ property $
-        \ (ShufflePair (xs, ShuffledList ys)) -> Prod xs =~= Prod ys
+        \ (ShufflePair (xs, ShuffledNonEmpty ys)) -> Prod xs =~= Prod ys
       it "should equate fractions with the same numerators and denominators" $ property $
         \ e1 e2 -> Frac e1 e2 =~= Frac e1 e2
       it "should equate exponentials with the same subexpression" $ property $
