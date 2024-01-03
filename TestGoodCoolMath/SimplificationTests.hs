@@ -94,4 +94,3 @@ spec = do
         \ e -> e =->..<-= Exp (Ln e)
       it "should simplify to product of exponentials given a sum exponent" $ property $
         \ es -> (Prod . map Exp) es =->..<-= Exp (Sum es)
-    -- TODO - more tests

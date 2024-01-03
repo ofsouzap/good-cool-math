@@ -43,6 +43,20 @@ firstJust = foldr foldFunc Nothing where
   foldFunc x@(Just _) _ = x
   foldFunc Nothing y = y
 
+-- |Same as mapOrFail but doesn't correct the ordering of the output and will instead return the reversed output
+mapOrFailReversed :: (a -> (Bool, b)) -> [a] -> Maybe [b]
+mapOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
+  foldFunc x (state, acc) = case f x of
+    (True, y) -> (True, y : acc)
+    (_, y) -> (state, y : acc)
+  takeOutput (False, _) = Nothing
+  takeOutput (True, xs) = Just xs
+
+-- |Map a list but the mapping function should also return a boolean to signify whether a condition has been met.
+-- If the condition is never met by the end of the mapping, return Nothing
+mapOrFail :: (a -> (Bool, b)) -> [a] -> Maybe [b]
+mapOrFail f xs = reverse <$> mapOrFailReversed f xs
+
 -- |Same as filterOrFail but doesn't correct the ordering of the output and will instead return the reversed output
 filterOrFailReversed :: (a -> Bool) -> [a] -> Maybe [a]
 filterOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
@@ -97,13 +111,13 @@ trySimplifyStep e@(Sum es) = firstJust
   [ Sum <$> tryRemoveLiteralsOfReversing 0 es -- Remove 0s from sums
   , Sum <$> tryExpandSumSubsums es -- Flatten nested sums
   , trySimplifyChildren e ] -- Otherwise, try simplify children
-  -- TODO - simplify 0s in sums, IntLits summed
+  -- TODO - simplify IntLits summed
 trySimplifyStep (Prod []) = (Just . IntLit) 1 -- Empty product uses product monoid empty
 trySimplifyStep e@(Prod es) = firstJust
   [ Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
   , Prod <$> tryExpandProdsSubprods es -- Flatten nested products
   , trySimplifyChildren e ] -- Otherwise, try simplify children
-  -- TODO - simplify 0s or 1s in products, IntLits producted
+  -- TODO - simplify 1s in products, IntLits producted
 trySimplifyStep (Exp (Ln e)) = Just e -- Exponential of logarithm becomes the subexpression
 trySimplifyStep (Exp (Sum es)) = (Just . Prod . map Exp) es -- Exponential of sum becomes product of exponentials
 trySimplifyStep e = trySimplifyChildren e
@@ -154,30 +168,20 @@ trySimplifyChildren (Exp e) = Exp <$> trySimplifyStep e
 trySimplifyChildren (Ln e) = Ln <$> trySimplifyStep e
 trySimplifyChildren _ = Nothing
 
-tryExpandSumSubsums :: [MathExpr] -> Maybe [MathExpr] -- TODO - abstract out the pattern, like below
-tryExpandSumSubsums = takeOutput . aux (False, []) where
-  aux :: (Bool, [MathExpr]) -> [MathExpr] -> (Bool, [MathExpr])
-  aux (valid, acc) [] = (valid, acc)
-  aux (_, acc) (Sum es:ts) = aux (True, es ++ acc) ts
-  aux (valid, acc) (h:ts) = aux (valid, h:acc) ts
-  takeOutput :: (Bool, [MathExpr]) -> Maybe [MathExpr]
-  takeOutput (False, _) = Nothing
-  takeOutput (True, xs) = Just xs
+tryExpandSumSubsums :: [MathExpr] -> Maybe [MathExpr]
+tryExpandSumSubsums xs = concat <$> mapOrFailReversed mapFunc xs where
+  mapFunc (Sum es) = (True, es)
+  mapFunc e = (False, [e])
 
-tryExpandProdsSubprods :: [MathExpr] -> Maybe [MathExpr] -- TODO - abstract out the pattern, like above
-tryExpandProdsSubprods = takeOutput . aux (False, []) where
-  aux :: (Bool, [MathExpr]) -> [MathExpr] -> (Bool, [MathExpr])
-  aux (valid, acc) [] = (valid, acc)
-  aux (_, acc) (Prod es:ts) = aux (True, es ++ acc) ts
-  aux (valid, acc) (h:ts) = aux (valid, h:acc) ts
-  takeOutput :: (Bool, [MathExpr]) -> Maybe [MathExpr]
-  takeOutput (False, _) = Nothing
-  takeOutput (True, xs) = Just xs
+tryExpandProdsSubprods :: [MathExpr] -> Maybe [MathExpr]
+tryExpandProdsSubprods xs = concat <$> mapOrFailReversed mapFunc xs where
+  mapFunc (Prod es) = (True, es)
+  mapFunc e = (False, [e])
 
 -- |Remove from a list of math expressions any elements that are integer literals of the specified value.
 -- Return Nothing if none found
 tryRemoveLiteralsOfReversing :: Int -> [MathExpr] -> Maybe [MathExpr]
-tryRemoveLiteralsOfReversing n = filterOrFail filterFunc where
+tryRemoveLiteralsOfReversing n = filterOrFailReversed filterFunc where
   filterFunc (IntLit x)
     | x == n = True
     | otherwise = False
