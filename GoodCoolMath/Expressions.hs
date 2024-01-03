@@ -3,7 +3,11 @@ module Expressions
   , (=~=)
   , OrderedMathExpr(..)
   , MathExprLeaf(..)
-  , unwrapExprLeaf ) where
+  , unwrapExprLeaf
+  , isIntLitWhere
+  , isIntLitOf
+  , isIntLit
+  , getIntLitVal ) where
 
 import Data.List ( intercalate, sort )
 import Test.QuickCheck
@@ -219,3 +223,24 @@ instance Ord OrderedMathExpr where
 
 instance Arbitrary OrderedMathExpr where
   arbitrary = OrderedMathExpr <$> arbitrary
+
+-----------------------
+-- Utility Functions --
+-----------------------
+
+isIntLitWhere :: (Int -> Bool) -> MathExpr -> Bool
+isIntLitWhere f (IntLit x) = f x
+isIntLitWhere _ _ = False
+
+isIntLit :: MathExpr -> Bool
+isIntLit = isIntLitWhere (const True)
+
+isIntLitOf :: Int -> MathExpr -> Bool
+isIntLitOf n = isIntLitWhere (== n)
+
+hasZeroLit :: Foldable t => t MathExpr -> Bool
+hasZeroLit = any (isIntLitOf 0)
+
+getIntLitVal :: MathExpr -> Maybe Int
+getIntLitVal (IntLit x) = Just x
+getIntLitVal _ = Nothing

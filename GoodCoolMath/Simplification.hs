@@ -4,9 +4,11 @@ module Simplification
   , simplifyFully
   , (=->..<-=) ) where
 
-import Expressions ( MathExpr(..), (=~=) )
+import Expressions ( MathExpr(..), (=~=), getIntLitVal )
 import Data.List ( unfoldr )
 import Data.Maybe (fromMaybe)
+import qualified Data.Monoid ( Sum(Sum), Product(Product) )
+import Data.Monoid (Sum(getSum), Product (getProduct))
 
 ----------------------
 -- Shortcuts for me --
@@ -33,11 +35,6 @@ nthOrLast 0 (h:_) = Just h
 nthOrLast _ [h] = Just h
 nthOrLast n (_:ts@(_:_)) = nthOrLast (n-1) ts
 
-hasZeroLit :: Foldable t => t MathExpr -> Bool
-hasZeroLit = any f where
-  f (IntLit 0) = True
-  f _ = False
-
 firstJust :: Foldable t => t (Maybe a) -> Maybe a
 firstJust = foldr foldFunc Nothing where
   foldFunc x@(Just _) _ = x
@@ -55,7 +52,7 @@ mapOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
 -- |Map a list but the mapping function should also return a boolean to signify whether a condition has been met.
 -- If the condition is never met by the end of the mapping, return Nothing
 mapOrFail :: (a -> (Bool, b)) -> [a] -> Maybe [b]
-mapOrFail f xs = reverse <$> mapOrFailReversed f xs
+mapOrFail f = fmap reverse . mapOrFailReversed f
 
 -- |Same as filterOrFail but doesn't correct the ordering of the output and will instead return the reversed output
 filterOrFailReversed :: (a -> Bool) -> [a] -> Maybe [a]
@@ -68,7 +65,19 @@ filterOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
 
 -- |Filter a list but return Nothing if no elements were removed
 filterOrFail :: (a -> Bool) -> [a] -> Maybe [a]
-filterOrFail f xs = reverse <$> filterOrFailReversed f xs
+filterOrFail f = fmap reverse . filterOrFailReversed f
+
+-- |Same as monoidPartitionAccumulateOrFail but doesn't correct the ordering of the output and will instead return the reversed output
+monoidPartitionAccumulateWithCountReversing :: (Monoid m, Foldable t) => (a -> Maybe m) -> t a -> (Int, m, [a])
+monoidPartitionAccumulateWithCountReversing partitioner = foldr foldFunc (0, mempty, []) where
+  foldFunc x (count, mAcc, xsAcc) = case partitioner x of
+    Just x' -> (count+1, mAcc <> x', xsAcc)
+    Nothing -> (count, mAcc, x : xsAcc)
+
+-- |Go through a foldable of elements and accumulate those that are mapped to a Just into a monoid structure
+-- and return the number of elements accumulated, the monoid result and the elements that weren't accumulated
+monoidPartitionAccumulateWithCount :: (Monoid m, Foldable t) => (a -> Maybe m) -> t a -> (Int, m, [a])
+monoidPartitionAccumulateWithCount = fmap (\ (n, m, xs) -> (n, m, reverse xs)) . monoidPartitionAccumulateWithCount
 
 -----------------
 -- Derivatives --
@@ -108,16 +117,17 @@ trySimplifyStep :: MathExpr -> Maybe MathExpr
 trySimplifyStep (Neg (Neg e)) = Just e -- Negative of negative
 trySimplifyStep (Sum []) = (Just . IntLit) 0 -- Empty sum uses sum monoid empty
 trySimplifyStep e@(Sum es) = firstJust
-  [ Sum <$> tryRemoveLiteralsOfReversing 0 es -- Remove 0s from sums
-  , Sum <$> tryExpandSumSubsums es -- Flatten nested sums
+  [ Sum <$> tryExpandSumSubsums es -- Flatten nested sums
+  , Sum <$> tryCollectSumIntLits es -- Collect integer literal terms together
+  , Sum <$> tryRemoveLiteralsOfReversing 0 es -- Remove 0s from sums
   , trySimplifyChildren e ] -- Otherwise, try simplify children
-  -- TODO - simplify IntLits summed
 trySimplifyStep (Prod []) = (Just . IntLit) 1 -- Empty product uses product monoid empty
 trySimplifyStep e@(Prod es) = firstJust
-  [ Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
-  , Prod <$> tryExpandProdsSubprods es -- Flatten nested products
+  [ Prod <$> tryExpandProdsSubprods es -- Flatten nested products
+  , Prod <$> tryCollectProdIntLits es -- Collect integer literal terms together
+  , Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
   , trySimplifyChildren e ] -- Otherwise, try simplify children
-  -- TODO - simplify 1s in products, IntLits producted
+  -- TODO - simplify 0s in products
 trySimplifyStep (Exp (Ln e)) = Just e -- Exponential of logarithm becomes the subexpression
 trySimplifyStep (Exp (Sum es)) = (Just . Prod . map Exp) es -- Exponential of sum becomes product of exponentials
 trySimplifyStep e = trySimplifyChildren e
@@ -186,3 +196,25 @@ tryRemoveLiteralsOfReversing n = filterOrFailReversed filterFunc where
     | x == n = True
     | otherwise = False
   filterFunc _ = False
+
+-- |Take terms and try to find all the integer literal terms and sum them together into a single integer literal term.
+-- If less than two integer literal terms found, returns Nothing
+tryCollectSumIntLits :: [MathExpr] -> Maybe [MathExpr]
+tryCollectSumIntLits = aux . trySumIntLitsReversing where
+  aux (0, _, _) = Nothing
+  aux (1, _, _) = Nothing
+  aux (_, s, xs) = Just ((IntLit . getSum) s : xs)
+
+trySumIntLitsReversing :: [MathExpr] -> (Int, Data.Monoid.Sum Int, [MathExpr])
+trySumIntLitsReversing = monoidPartitionAccumulateWithCountReversing (fmap Data.Monoid.Sum . getIntLitVal)
+
+-- |Take terms and try to find all the integer literal terms and multiply them together into a single integer literal term
+-- If less than two integer literal terms found, returns Nothing
+tryCollectProdIntLits :: [MathExpr] -> Maybe [MathExpr]
+tryCollectProdIntLits = aux . tryProdIntLitsReversing where
+  aux (0, _, _) = Nothing
+  aux (1, _, _) = Nothing
+  aux (_, p, xs) = Just ((IntLit . getProduct) p : xs)
+
+tryProdIntLitsReversing :: [MathExpr] -> (Int, Data.Monoid.Product Int, [MathExpr])
+tryProdIntLitsReversing = monoidPartitionAccumulateWithCountReversing (fmap Data.Monoid.Product . getIntLitVal)

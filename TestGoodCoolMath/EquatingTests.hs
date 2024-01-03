@@ -7,25 +7,9 @@ import Test.Hspec
   , it
   , shouldBe )
 import Test.QuickCheck
-  ( property
-  , Arbitrary
-  , arbitrary
-  , shuffle )
+  ( property )
+import Utils
 import GoodCoolMath ( MathExpr(..), (=~=) )
-
--- Shuffled and unshuffled list pairs
-
-newtype ShuffledList a = ShuffledList [a]
-  deriving ( Show )
-
-newtype ShufflePair a = ShufflePair ([a], ShuffledList a)
-  deriving ( Show )
-
-instance Arbitrary a => Arbitrary (ShufflePair a) where
-  arbitrary = do
-    xs <- arbitrary
-    ys <- shuffle xs
-    (return . ShufflePair) (xs, ShuffledList ys)
 
 spec :: Spec
 spec = do
