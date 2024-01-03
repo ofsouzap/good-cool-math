@@ -21,7 +21,9 @@ import GoodCoolMath
   , (=->..<-=)
   , MathExprLeaf(..)
   , unwrapExprLeaf
-  , isIntLitOf )
+  , isIntLitOf
+  , zero
+  , one )
 
 doesntSimplify :: MathExpr -> Bool
 doesntSimplify e = ((=~= e) . simplifyFully) e
@@ -52,7 +54,7 @@ spec = do
         \ es1 es2 -> Sum (es1 <> pure (Sum es2)) =->..<-= Sum (es1 <> es2)
     describe "when a sum has zero literals" $ do
       it "should remove it if there is only one" $ property $
-        \ (es1', es2') -> Sum (NonEmpty.map unwrapNonZeroIntLitMathExpr es1' <> pure (IntLit 0) <> NonEmpty.map unwrapNonZeroIntLitMathExpr es2') =->..<-= Sum (NonEmpty.map unwrapNonZeroIntLitMathExpr es1' <> NonEmpty.map unwrapNonZeroIntLitMathExpr es2')
+        \ (es1', es2') -> Sum (NonEmpty.map unwrapNonZeroIntLitMathExpr es1' <> pure (zero) <> NonEmpty.map unwrapNonZeroIntLitMathExpr es2') =->..<-= Sum (NonEmpty.map unwrapNonZeroIntLitMathExpr es1' <> NonEmpty.map unwrapNonZeroIntLitMathExpr es2')
       it "should remove them when there are many" $ property $
         \ (WithWithoutIntLitZeroMathExprs (xs, ys)) -> Sum xs =->..<-= Sum ys
     -- TODO - test combining int literals in sum
@@ -65,7 +67,7 @@ spec = do
         \ es1 es2 -> Prod (es1 <> pure (Prod es2)) =->..<-= Prod (es1 <> es2)
     describe "when a product has one literals" $ do
       it "should remove it if there is only one" $ property $
-        \ (es1', es2') -> Prod (NonEmpty.map unwrapNonOneIntLitMathExpr es1' <> pure (IntLit 1) <> NonEmpty.map unwrapNonOneIntLitMathExpr es2') =->..<-= Prod (NonEmpty.map unwrapNonOneIntLitMathExpr es1' <> NonEmpty.map unwrapNonOneIntLitMathExpr es2')
+        \ (es1', es2') -> Prod (NonEmpty.map unwrapNonOneIntLitMathExpr es1' <> pure (one) <> NonEmpty.map unwrapNonOneIntLitMathExpr es2') =->..<-= Prod (NonEmpty.map unwrapNonOneIntLitMathExpr es1' <> NonEmpty.map unwrapNonOneIntLitMathExpr es2')
       it "should remove them when there are many" $ property $
         \ (WithWithoutIntLitOneMathExprs (xs, ys)) -> Prod xs =->..<-= Prod ys
     -- TODO - test combining int literals in sum

@@ -14,7 +14,8 @@ library
     exposed-modules:  GoodCoolMath
     other-modules:    Expressions,
                       Simplification,
-                      Derivation
+                      Derivation,
+                      Shorthand
     build-depends:    base ^>=4.16.4.0,
                       QuickCheck
     hs-source-dirs:   GoodCoolMath
