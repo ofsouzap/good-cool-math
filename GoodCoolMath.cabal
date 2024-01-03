@@ -23,10 +23,11 @@ library
 
 test-suite TestGoodCoolMath
     main-is:          Main.hs
-    other-modules:    OrderedMathExprOrderingTests,
+    other-modules:    Utils,
+                      OrderedMathExprOrderingTests,
                       EquatingTests,
                       SimplificationTests,
-                      Utils
+                      DerivationTests
     build-depends:    base ^>=4.16.4.0,
                       GoodCoolMath,
                       hspec,

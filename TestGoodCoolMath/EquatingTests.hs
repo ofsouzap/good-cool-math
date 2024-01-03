@@ -1,4 +1,4 @@
-module EquatingTests where
+module EquatingTests ( spec ) where
 
 import Test.Hspec
   ( Spec

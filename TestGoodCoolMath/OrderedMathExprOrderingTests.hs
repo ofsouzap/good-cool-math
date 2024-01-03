@@ -1,4 +1,4 @@
-module OrderedMathExprOrderingTests where
+module OrderedMathExprOrderingTests ( spec ) where
 
 import Test.Hspec
   ( Spec

@@ -105,6 +105,8 @@ trySimplifyStep e@(Prod es) = firstJust
   , Prod <$> tryCollectProdIntLits es -- Collect integer literal terms together
   , Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
   , trySimplifyChildren e ] -- Otherwise, try simplify children
+  -- TODO - collect negatives in subexpressions, have 0 literal in product make whoole product 0
+-- TODO - collect negatives from fraction
 trySimplifyStep (Exp (Ln e)) = Just e -- Exponential of logarithm becomes the subexpression
 trySimplifyStep (Exp (Sum es)) = (Just . Prod . NonEmpty.map Exp) es -- Exponential of sum becomes product of exponentials
 trySimplifyStep e = trySimplifyChildren e

@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module SimplificationTests where
+module SimplificationTests ( spec ) where
 
 import Data.List.NonEmpty
   ( (<|) )
