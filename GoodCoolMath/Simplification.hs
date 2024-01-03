@@ -40,7 +40,7 @@ firstJust = foldr foldFunc Nothing where
   foldFunc x@(Just _) _ = x
   foldFunc Nothing y = y
 
--- |Same as mapOrFail but doesn't correct the ordering of the output and will instead return the reversed output
+-- | Same as mapOrFail but doesn't correct the ordering of the output and will instead return the reversed output
 mapOrFailReversed :: (a -> (Bool, b)) -> [a] -> Maybe [b]
 mapOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
   foldFunc x (state, acc) = case f x of
@@ -49,12 +49,12 @@ mapOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
   takeOutput (False, _) = Nothing
   takeOutput (True, xs) = Just xs
 
--- |Map a list but the mapping function should also return a boolean to signify whether a condition has been met.
+-- | Map a list but the mapping function should also return a boolean to signify whether a condition has been met.
 -- If the condition is never met by the end of the mapping, return Nothing
 mapOrFail :: (a -> (Bool, b)) -> [a] -> Maybe [b]
 mapOrFail f = fmap reverse . mapOrFailReversed f
 
--- |Same as filterOrFail but doesn't correct the ordering of the output and will instead return the reversed output
+-- | Same as filterOrFail but doesn't correct the ordering of the output and will instead return the reversed output
 filterOrFailReversed :: (a -> Bool) -> [a] -> Maybe [a]
 filterOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
   foldFunc x (state, acc)
@@ -63,18 +63,18 @@ filterOrFailReversed f = takeOutput . foldr foldFunc (False, []) where
   takeOutput (False, _) = Nothing
   takeOutput (True, xs) = Just xs
 
--- |Filter a list but return Nothing if no elements were removed
+-- | Filter a list but return Nothing if no elements were removed
 filterOrFail :: (a -> Bool) -> [a] -> Maybe [a]
 filterOrFail f = fmap reverse . filterOrFailReversed f
 
--- |Same as monoidPartitionAccumulateOrFail but doesn't correct the ordering of the output and will instead return the reversed output
+-- | Same as monoidPartitionAccumulateOrFail but doesn't correct the ordering of the output and will instead return the reversed output
 monoidPartitionAccumulateWithCountReversing :: (Monoid m, Foldable t) => (a -> Maybe m) -> t a -> (Int, m, [a])
 monoidPartitionAccumulateWithCountReversing partitioner = foldr foldFunc (0, mempty, []) where
   foldFunc x (count, mAcc, xsAcc) = case partitioner x of
     Just x' -> (count+1, mAcc <> x', xsAcc)
     Nothing -> (count, mAcc, x : xsAcc)
 
--- |Go through a foldable of elements and accumulate those that are mapped to a Just into a monoid structure
+-- | Go through a foldable of elements and accumulate those that are mapped to a Just into a monoid structure
 -- and return the number of elements accumulated, the monoid result and the elements that weren't accumulated
 monoidPartitionAccumulateWithCount :: (Monoid m, Foldable t) => (a -> Maybe m) -> t a -> (Int, m, [a])
 monoidPartitionAccumulateWithCount = fmap (\ (n, m, xs) -> (n, m, reverse xs)) . monoidPartitionAccumulateWithCount
@@ -83,7 +83,7 @@ monoidPartitionAccumulateWithCount = fmap (\ (n, m, xs) -> (n, m, reverse xs)) .
 -- Derivatives --
 -----------------
 
--- |Take derivative of an expression
+-- | Take derivative of an expression
 der :: String -> MathExpr -> MathExpr
 der _ (IntLit _) = zero
 der dVar (Var var)
@@ -112,7 +112,7 @@ der dVar (Ln x) = Frac (der dVar x) x
 
 -- Usually, I'll aim to simplify expressions to a sum-of-products form
 
--- |Try to perform a pre-coded simplifying step on an expression
+-- | Try to perform a pre-coded simplifying step on an expression
 trySimplifyStep :: MathExpr -> Maybe MathExpr
 trySimplifyStep (Neg (Neg e)) = Just e -- Negative of negative
 trySimplifyStep (Sum []) = (Just . IntLit) 0 -- Empty sum uses sum monoid empty
@@ -132,23 +132,23 @@ trySimplifyStep (Exp (Ln e)) = Just e -- Exponential of logarithm becomes the su
 trySimplifyStep (Exp (Sum es)) = (Just . Prod . map Exp) es -- Exponential of sum becomes product of exponentials
 trySimplifyStep e = trySimplifyChildren e
 
--- |The sequence of simplifying steps in the process of simplifying an expression
+-- | The sequence of simplifying steps in the process of simplifying an expression
 simplifyingSeq :: MathExpr -> [MathExpr]
 simplifyingSeq e = e : unfoldr unfoldFunc e where
   unfoldFunc :: MathExpr -> Maybe (MathExpr, MathExpr)
   unfoldFunc e' = trySimplifyStep e' >>= Just . dupe
 
--- |Try to simplify the given expression by performing at most the number of simplification steps specified
+-- | Try to simplify the given expression by performing at most the number of simplification steps specified
 simplifyAtMost :: Int -> MathExpr -> MathExpr
 simplifyAtMost maxSteps e = (fromMaybe e . nthOrLast maxSteps . simplifyingSeq) e
 
--- |Try to simplify the expression as much as possible and return the result.
+-- | Try to simplify the expression as much as possible and return the result.
 -- NOTE: there is no guarantee that this function will terminate:
 -- depending on how the simplification is implemented, this function could end up running forever
 simplifyFully :: MathExpr -> MathExpr
 simplifyFully = last . simplifyingSeq
 
--- |Test if two expressions fully simplify to the same result
+-- | Test if two expressions fully simplify to the same result
 -- NOTE: this may not terminate if the simplification process doesn't terminate
 (=->..<-=) :: MathExpr -> MathExpr -> Bool
 e1 =->..<-= e2 = simplifyFully e1 =~= simplifyFully e2
@@ -157,7 +157,7 @@ e1 =->..<-= e2 = simplifyFully e1 =~= simplifyFully e2
 -- Simplification helper functions --
 -------------------------------------
 
--- |Simplify the first expression in a list that can be simplified
+-- | Simplify the first expression in a list that can be simplified
 trySimplifyExprList :: [MathExpr] -> Maybe [MathExpr]
 trySimplifyExprList = aux [] where
   aux :: [MathExpr] -> [MathExpr] -> Maybe [MathExpr]
@@ -166,7 +166,7 @@ trySimplifyExprList = aux [] where
     Just eh' -> Just (reverse acc ++ (eh' : ets))
     Nothing -> aux (eh:acc) ets
 
--- |Try to simplify a subexpression of an expression
+-- | Try to simplify a subexpression of an expression
 trySimplifyChildren :: MathExpr -> Maybe MathExpr
 trySimplifyChildren (Neg e) = Neg <$> trySimplifyStep e
 trySimplifyChildren (Sum es) = trySimplifyExprList es >>= Just . Sum
@@ -188,7 +188,7 @@ tryExpandProdsSubprods xs = concat <$> mapOrFailReversed mapFunc xs where
   mapFunc (Prod es) = (True, es)
   mapFunc e = (False, [e])
 
--- |Remove from a list of math expressions any elements that are integer literals of the specified value.
+-- | Remove from a list of math expressions any elements that are integer literals of the specified value.
 -- Return Nothing if none found
 tryRemoveLiteralsOfReversing :: Int -> [MathExpr] -> Maybe [MathExpr]
 tryRemoveLiteralsOfReversing n = filterOrFailReversed filterFunc where
@@ -197,7 +197,7 @@ tryRemoveLiteralsOfReversing n = filterOrFailReversed filterFunc where
     | otherwise = False
   filterFunc _ = False
 
--- |Take terms and try to find all the integer literal terms and sum them together into a single integer literal term.
+-- | Take terms and try to find all the integer literal terms and sum them together into a single integer literal term.
 -- If less than two integer literal terms found, returns Nothing
 tryCollectSumIntLits :: [MathExpr] -> Maybe [MathExpr]
 tryCollectSumIntLits = aux . trySumIntLitsReversing where
@@ -208,7 +208,7 @@ tryCollectSumIntLits = aux . trySumIntLitsReversing where
 trySumIntLitsReversing :: [MathExpr] -> (Int, Data.Monoid.Sum Int, [MathExpr])
 trySumIntLitsReversing = monoidPartitionAccumulateWithCountReversing (fmap Data.Monoid.Sum . getIntLitVal)
 
--- |Take terms and try to find all the integer literal terms and multiply them together into a single integer literal term
+-- | Take terms and try to find all the integer literal terms and multiply them together into a single integer literal term
 -- If less than two integer literal terms found, returns Nothing
 tryCollectProdIntLits :: [MathExpr] -> Maybe [MathExpr]
 tryCollectProdIntLits = aux . tryProdIntLitsReversing where

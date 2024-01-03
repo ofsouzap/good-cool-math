@@ -62,7 +62,7 @@ instance Arbitrary MathExpr where
       , eExp
       , eLn ]
 
--- |Test if the two expressions are structurally equal.
+-- | Test if the two expressions are structurally equal.
 -- This will account for equivalence properties of the constructors, eg. commutativity of addition (1 + 2 == 2 + 1),
 -- but won't equate expressions of different constructors
 (=~=) :: MathExpr -> MathExpr -> Bool
@@ -80,7 +80,7 @@ Exp e1 =~= Exp e2 = e1 =~= e2
 Ln e1 =~= Ln e2 = e1 =~= e2
 _ =~= _ = False
 
--- |Test if two lists of math expressions' corresponding elements satisfy =~= and the lists have the same number of elements
+-- | Test if two lists of math expressions' corresponding elements satisfy =~= and the lists have the same number of elements
 exprListStructEqual :: [MathExpr] -> [MathExpr] -> Bool
 exprListStructEqual [] [] = True
 exprListStructEqual [] (_:_) = False
@@ -91,7 +91,7 @@ exprListStructEqual (xh:xts) (yh:yts) = xh =~= yh && exprListStructEqual xts yts
 -- Expression leaf nodes --
 ---------------------------
 
--- |A wrapper over the math expression data type whose `Arbitrary` implementation only creates leaf nodes
+-- | A wrapper over the math expression data type whose `Arbitrary` implementation only creates leaf nodes
 newtype MathExprLeaf = MathExprLeaf MathExpr
 
 unwrapExprLeaf :: MathExprLeaf -> MathExpr
@@ -110,7 +110,7 @@ instance Arbitrary MathExprLeaf where
 -- Ordered expression --
 ------------------------
 
--- |Type for internal use to allow ordering of math expressions to optimise comparisons
+-- | Type for internal use to allow ordering of math expressions to optimise comparisons
 -- NOTE: The ordering used is arbitrary and signifies nothing except a consistent way to sort math expressions.
 -- Be careful when using this
 newtype OrderedMathExpr = OrderedMathExpr MathExpr
