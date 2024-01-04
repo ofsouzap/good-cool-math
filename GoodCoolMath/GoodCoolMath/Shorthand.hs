@@ -42,6 +42,10 @@ e1 `plus` e2 = Sum (e1 :| [e2])
 minus :: MathExpr -> MathExpr -> MathExpr
 e1 `minus` e2 = e1 `plus` Neg e2
 
+-- | The constant e
+constE :: MathExpr
+constE = Exp one
+
 -- | Product of two expressions
 times :: MathExpr -> MathExpr -> MathExpr
 e1 `times` e2 = Prod (e1 :| [e2])

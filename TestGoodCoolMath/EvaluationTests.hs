@@ -6,15 +6,17 @@ import Test.Hspec
   , hspec
   , describe
   , it
-  , shouldBe )
+  , shouldBe, SpecWith, Example (Arg) )
 import Test.QuickCheck
-  ( property )
+  ( property, Property, Arbitrary )
 import Utils
-import GoodCoolMath ( MathExpr(..), (=~=), evalApprox, evalApproxWith, set, empty, sub, EnvList(EnvList) )
+import GoodCoolMath ( MathExpr(..), (=~=), evalApprox, evalApproxWith, set, empty, sub, EnvList(EnvList), EvalEnv )
 import GoodCoolMath.Shorthand
 import Data.Maybe (isNothing)
 import Data.List.NonEmpty ( NonEmpty )
 import qualified Data.List.NonEmpty as NonEmpty ( map )
+
+-- Utility functions
 
 foldMaybes :: Foldable t => (a -> b -> b) -> b -> t (Maybe a) -> Maybe b
 foldMaybes f a = foldr foldFunc (Just a) where
@@ -27,6 +29,29 @@ sumMaybes = foldMaybes (+) 0
 
 productMaybes :: (Foldable t, Num a) => t (Maybe a) -> Maybe a
 productMaybes = foldMaybes (*) 1
+
+-- Testing properties
+
+prop_evalEnvEmptySetThenSub :: (Show t, Arbitrary t, EvalEnv t) => t -> SpecWith (Arg Property)
+prop_evalEnvEmptySetThenSub (_ :: t) = it "should return a set value after setting it from an empty environment" $ property $
+  \ vName vVal -> Just vVal == (sub vName . set vName vVal) (empty :: t)
+
+prop_evalEnvSetThenSub :: (Show t, Arbitrary t, EvalEnv t) => t -> SpecWith (Arg Property)
+prop_evalEnvSetThenSub (_ :: t) = it "should return a set value after setting it from any environment" $ property $
+  \ (env :: t) vName vVal -> Just vVal == (sub vName . set vName vVal) env
+
+prop_emptyNothingEval :: (Show t, Arbitrary t, EvalEnv t) => t -> SpecWith (Arg Property)
+prop_emptyNothingEval (_ :: t) = it "should not have a substitution for any variable from an empty environment" $ property $
+  \ vName -> (isNothing . sub vName) (empty :: t)
+
+evalEnv :: (Show t, Arbitrary t, EvalEnv t) => t -> SpecWith (Arg Property)
+evalEnv env = do
+  describe "is valid evaluation environment" $ do
+    prop_evalEnvEmptySetThenSub env
+    prop_evalEnvSetThenSub env
+    prop_emptyNothingEval env
+
+-- Full tests
 
 spec :: Spec
 spec = do
@@ -63,7 +88,10 @@ spec = do
         describe "should evaluate the hard-coded cases to roughly the expected results" $ do
           it "case 0" $
             shouldBeJustWhichApproxEq 1 1e-3 (evalApprox (half `plus` half `plus` (Exp (Ln two) `times` zero)))
-          -- TODO - more hard-coded test cases
+          it "case 1 (tanh 0)" $
+            shouldBeJustWhichApproxEq 0 1e-3 (let x = zero in evalApprox ((Exp x `minus` Exp (neg x)) `dividedBy` (Exp x `plus` Exp (neg x))))
+          it "case 1 (tanh 5)" $
+            shouldBeJustWhichApproxEq 0.99990920426 1e-3 (let x = int 5 in evalApprox ((Exp x `minus` Exp (neg x)) `dividedBy` (Exp x `plus` Exp (neg x))))
       describe "with environment" $ do
         it "should evaluate an integer literal to its value" $ property $
           \ n (env :: EnvList) -> isJustWhichApproxEq (fromIntegral n) 1e-3 ((evalApproxWith env . IntLit) n)
@@ -71,4 +99,6 @@ spec = do
           \ vName vVal -> let (env :: EnvList) = set vName vVal empty in isJustWhichApproxEq (fromIntegral vVal) 1e-3 ((evalApproxWith env . Var) vName)
         it "should not be able to evaluate a variable using an empty environment" $ property $
           \ vName (vVal :: Int) -> (isNothing . evalApproxWith (empty :: EnvList) . Var) vName
-    -- TODO - test environment substitution and value-setting
+        -- TODO - hard-coded tests with variable substitutions needed
+    describe "evaluation environments" $ do
+      evalEnv (empty :: EnvList)
