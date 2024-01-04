@@ -30,7 +30,8 @@ test-suite TestGoodCoolMath
                       OrderedMathExprOrderingTests,
                       EquatingTests,
                       SimplificationTests,
-                      DerivationTests
+                      DerivationTests,
+                      EvaluationTests
     build-depends:    base ^>=4.16.4.0,
                       GoodCoolMath,
                       hspec,

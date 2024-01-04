@@ -14,7 +14,7 @@ import Test.QuickCheck
   , Gen
   , arbitrary
   , shuffle
-  , suchThat )
+  , suchThat, elements )
 import GoodCoolMath
 
 -- General
@@ -35,13 +35,22 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
 -- Tests
 
 approxEq :: (Ord t, Num t) => t -> t -> t -> Bool
-approxEq exp atol = (<) atol . abs . (-) exp
+approxEq exp atol = (>) atol . abs . (-) exp
 
 shouldApproxEq :: (Show t, Ord t, Num t) => t -> t -> t -> Expectation
 shouldApproxEq exp atol = (`shouldSatisfy` approxEq exp atol)
 
-maybeShouldApproxEq :: (Show t, Ord t, Num t) => t -> t -> Maybe t -> Expectation
-maybeShouldApproxEq exp atol = (`shouldSatisfy` maybe False (approxEq exp atol))
+isJustWhichApproxEq :: (Ord t, Num t) => t -> t -> Maybe t -> Bool
+isJustWhichApproxEq exp atol = maybe False (approxEq exp atol)
+
+shouldBeJustWhichApproxEq :: (Show t, Ord t, Num t) => t -> t -> Maybe t -> Expectation
+shouldBeJustWhichApproxEq exp atol = (`shouldSatisfy` isJustWhichApproxEq exp atol)
+
+maybesApproxEqWithTol :: (Ord t, Num t) => t -> Maybe t -> Maybe t -> Bool
+maybesApproxEqWithTol atol Nothing Nothing = True
+maybesApproxEqWithTol atol (Just x) (Just y) = approxEq y atol x
+maybesApproxEqWithTol atol Nothing (Just _) = False
+maybesApproxEqWithTol atol (Just _) Nothing = False
 
 -- Shuffled and unshuffled non-empty list pairs
 
@@ -56,6 +65,40 @@ instance Arbitrary a => Arbitrary (ShufflePair a) where
     xs <- arbitrary
     ys <- shuffleNonEmpty xs
     (return . ShufflePair) (xs, ShuffledNonEmpty ys)
+
+-- MathExpr that is a leaf node (doesn't hold in it any other expressions)
+
+newtype MathExprLeaf = MathExprLeaf MathExpr
+
+unwrapExprLeaf :: MathExprLeaf -> MathExpr
+unwrapExprLeaf (MathExprLeaf e') = e'
+
+instance Show MathExprLeaf where
+  show (MathExprLeaf e') = show e'
+
+instance Arbitrary MathExprLeaf where
+  arbitrary = do
+    eIntLit <- MathExprLeaf . IntLit <$> arbitrary
+    eVar <- MathExprLeaf . Var <$> arbitrary
+    elements [ eIntLit, eVar ]
+
+-- Leaf MathExpr that isn't IntLit 0
+
+-- | A leaf expression. If it is an integer literal then the value must not be zero
+newtype NotZeroIntLitMathExprLeaf = NotZeroIntLitMathExprLeaf MathExpr
+  deriving ( Show )
+
+instance Arbitrary NotZeroIntLitMathExprLeaf where
+  arbitrary = NotZeroIntLitMathExprLeaf <$> suchThat (unwrapExprLeaf <$> arbitrary) (not . isIntLitOf 0)
+
+-- Leaf MathExpr that isn't a negative IntLit
+
+-- | A leaf expression. If it is an integer literal then the value must be positive
+newtype IntLitOnlyPosMathExprLeaf = IntLitOnlyPosMathExprLeaf MathExpr
+  deriving ( Show )
+
+instance Arbitrary IntLitOnlyPosMathExprLeaf where
+  arbitrary = IntLitOnlyPosMathExprLeaf <$> suchThat (unwrapExprLeaf <$> arbitrary) (maybe True (> 0) . getIntLitVal)
 
 -- MathExpr that isn't IntLit 0
 

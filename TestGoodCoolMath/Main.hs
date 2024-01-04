@@ -5,6 +5,7 @@ import qualified SimplificationTests ( spec )
 import qualified EquatingTests ( spec )
 import qualified OrderedMathExprOrderingTests ( spec )
 import qualified DerivationTests ( spec )
+import qualified EvaluationTests ( spec )
 
 main :: IO ()
 main = hspec $ do
@@ -12,3 +13,4 @@ main = hspec $ do
   EquatingTests.spec
   SimplificationTests.spec
   DerivationTests.spec
+  EvaluationTests.spec

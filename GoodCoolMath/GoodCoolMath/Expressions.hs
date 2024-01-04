@@ -2,8 +2,6 @@ module GoodCoolMath.Expressions
   ( MathExpr(..)
   , (=~=)
   , OrderedMathExpr(..)
-  , MathExprLeaf(..)
-  , unwrapExprLeaf
   , isIntLitWhere
   , isIntLitOf
   , isIntLit
@@ -94,25 +92,6 @@ exprListStructEqual [] [] = True
 exprListStructEqual [] (_:_) = False
 exprListStructEqual (_:_) [] = False
 exprListStructEqual (xh:xts) (yh:yts) = xh =~= yh && exprListStructEqual xts yts
-
----------------------------
--- Expression leaf nodes --
----------------------------
-
--- | A wrapper over the math expression data type whose `Arbitrary` implementation only creates leaf nodes
-newtype MathExprLeaf = MathExprLeaf MathExpr
-
-unwrapExprLeaf :: MathExprLeaf -> MathExpr
-unwrapExprLeaf (MathExprLeaf e') = e'
-
-instance Show MathExprLeaf where
-  show (MathExprLeaf e') = show e'
-
-instance Arbitrary MathExprLeaf where
-  arbitrary = do
-    eIntLit <- MathExprLeaf . IntLit <$> arbitrary
-    eVar <- MathExprLeaf . Var <$> arbitrary
-    elements [ eIntLit, eVar ]
 
 ------------------------
 -- Ordered expression --

@@ -19,8 +19,6 @@ import GoodCoolMath
   , MathExpr(..)
   , (=~=)
   , (=->..<-=)
-  , MathExprLeaf(..)
-  , unwrapExprLeaf
   , isIntLitOf )
 import GoodCoolMath.Shorthand
 
