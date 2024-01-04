@@ -3,7 +3,12 @@ module GoodCoolMath.Shorthand where
 import Data.List.NonEmpty
   ( NonEmpty((:|)) )
 import GoodCoolMath.Expressions
-  ( MathExpr(..) )
+  ( VarName(..)
+  , MathExpr(..) )
+
+-- | Shorthand for creating a variable by some name
+var :: String -> MathExpr
+var = Var . VarName
 
 -- | An integer literal
 int :: Int -> MathExpr

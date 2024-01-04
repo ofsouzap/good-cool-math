@@ -11,7 +11,8 @@ import Data.List.NonEmpty
 import qualified Data.List.NonEmpty as NonEmpty
   ( map )
 import GoodCoolMath.Expressions
-  ( MathExpr(..) )
+  ( VarName(..)
+  , MathExpr(..) )
 import Data.Maybe (fromMaybe)
 
 ------------------------------
@@ -22,9 +23,9 @@ class EvalEnv t where
   -- | The environment with no variables' values set
   empty :: t
   -- | Try find a value to substitute for a variable name in the environment
-  sub :: String -> t -> Maybe Int
+  sub :: VarName -> t -> Maybe Int
   -- | Set a value for a variable name in the environment
-  set :: String -> Int -> t -> t
+  set :: VarName -> Int -> t -> t
   -- | Substitute for all variables possible in an expression using the environment
   subExpr :: MathExpr -> t -> MathExpr
   subExpr e@(IntLit _) _ = e
@@ -41,7 +42,7 @@ class EvalEnv t where
 -- | An evaluation environment stored as a list of variable name-value pairs.
 -- Values are added in constant time by appending them to the head of the list
 -- but, consequently, the list can become very long if values are frequently changed
-newtype EnvList = EnvList [(String, Int)]
+newtype EnvList = EnvList [(VarName, Int)]
   deriving ( Show )
 
 instance EvalEnv EnvList where
@@ -62,7 +63,7 @@ instance Arbitrary EnvList where
 -- but, in the worst case, can have linear-time insertions and queries
 data EnvTree =
     Leaf
-  | Node EnvTree EnvTree (String, Int)
+  | Node EnvTree EnvTree (VarName, Int)
   deriving ( Show )
 
 instance EvalEnv EnvTree where
@@ -81,17 +82,17 @@ instance EvalEnv EnvTree where
 instance Arbitrary EnvTree where
   arbitrary = arbitraryConstrained Nothing
     where
-      getVarName :: EnvTree -> Maybe String
+      getVarName :: EnvTree -> Maybe VarName
       getVarName Leaf = Nothing
       getVarName (Node _ _ (x,_)) = Just x
-      arbitraryConstrained :: Maybe (Ordering, String) -> Gen EnvTree
+      arbitraryConstrained :: Maybe (Ordering, VarName) -> Gen EnvTree
       arbitraryConstrained Nothing = do
-        childName <- (arbitrary :: Gen String)
+        childName <- (arbitrary :: Gen VarName)
         frequency [(1, return Leaf), (1, arbitraryNodeWithName childName)]
       arbitraryConstrained (Just (LT, s)) = fromMaybe Leaf <$> suchThatMaybe (arbitrary :: Gen EnvTree) (maybe True (< s) . getVarName)
       arbitraryConstrained (Just (GT, s)) = fromMaybe Leaf <$> suchThatMaybe (arbitrary :: Gen EnvTree) (maybe True (> s) . getVarName)
       arbitraryConstrained (Just (EQ, s)) = arbitraryNodeWithName s
-      arbitraryNodeWithName :: String -> Gen EnvTree
+      arbitraryNodeWithName :: VarName -> Gen EnvTree
       arbitraryNodeWithName s = do
         l <- arbitraryConstrained (Just (LT, s))
         r <- arbitraryConstrained (Just (GT, s))

@@ -6,18 +6,21 @@ import Data.List.NonEmpty
   , (<|) )
 import qualified Data.List.NonEmpty as NonEmpty
   ( map )
-import GoodCoolMath.Expressions ( MathExpr(..) )
+import GoodCoolMath.Expressions ( VarName(..), MathExpr(..) )
 import GoodCoolMath.Shorthand
+  ( zero
+  , one
+  , negOne )
 
 ------------------------
 -- Taking derivatives --
 ------------------------
 
 -- | Take derivative of an expression
-der :: String -> MathExpr -> MathExpr
+der :: VarName -> MathExpr -> MathExpr
 der _ (IntLit _) = zero
-der dVar (Var var)
-  | dVar == var = one
+der dVar (Var v)
+  | dVar == v = one
   | otherwise = zero
 der dVar (Neg x) = (Neg . der dVar) x
 der dVar (Sum es) = (Sum . NonEmpty.map (der dVar)) es

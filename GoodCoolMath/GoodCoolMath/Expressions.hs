@@ -1,5 +1,6 @@
 module GoodCoolMath.Expressions
-  ( MathExpr(..)
+  ( VarName(..)
+  , MathExpr(..)
   , (=~=)
   , OrderedMathExpr(..)
   , isIntLitWhere
@@ -25,9 +26,26 @@ import Data.Semigroup (Semigroup(sconcat))
 bracketedShow :: Show a => a -> String
 bracketedShow x = "(" ++ show x ++ ")"
 
+--------------------
+-- Variable Names --
+--------------------
+
+newtype VarName = VarName String
+  deriving ( Eq, Ord )
+
+instance Show VarName where
+  show (VarName x) = show x
+
+instance Arbitrary VarName where
+  arbitrary = VarName <$> (arbitrary :: Gen String)
+
+----------------------
+-- Math Expressions --
+----------------------
+
 data MathExpr =
     IntLit Int -- TODO - constants that aren't necessarily int-valued. Could be named with a string, could be just named (eg. pi)
-  | Var String -- TODO - wrap variable names in new data type
+  | Var VarName
   | Neg MathExpr
   | Sum (NonEmpty MathExpr)
   | Prod (NonEmpty MathExpr)
@@ -37,7 +55,7 @@ data MathExpr =
 
 instance Show MathExpr where
   show (IntLit x) = show x
-  show (Var vName) = vName
+  show (Var (VarName vName)) = vName
   show (Neg m) = "-" ++ bracketedShow m
   show (Sum m) = (sconcat . intersperse "+" . NonEmpty.map bracketedShow) m
   show (Prod m) = (sconcat . intersperse "*"  . NonEmpty.map bracketedShow) m
@@ -45,8 +63,8 @@ instance Show MathExpr where
   show (Exp x) = "e^" ++ bracketedShow x
   show (Ln x) = "ln" ++ bracketedShow x
 
-arbitraryVarName :: Gen String
-arbitraryVarName = pure <$> (elements . filter (`notElem` ['e', 'i'])) ['a'..'z']
+arbitraryVarName :: Gen VarName
+arbitraryVarName = VarName . pure <$> (elements . filter (`notElem` ['e', 'i'])) ['a'..'z']
 
 instance Arbitrary MathExpr where
   arbitrary = do
@@ -73,7 +91,7 @@ instance Arbitrary MathExpr where
 -- but won't equate expressions of different constructors
 (=~=) :: MathExpr -> MathExpr -> Bool
 IntLit a =~= IntLit b = a == b
-Var a =~= Var b = a == b
+Var (VarName a) =~= Var (VarName b) = a == b
 Neg e1 =~= Neg e2 = e1 =~= e2
 Sum es1 =~= Sum es2 = exprListStructEqual
   ((NonEmpty.toList . NonEmpty.map unwrapOrderedExpr . NonEmpty.sort . NonEmpty.map OrderedMathExpr) es1)
@@ -108,7 +126,7 @@ unwrapOrderedExpr (OrderedMathExpr e') = e'
 
 instance Eq OrderedMathExpr where
   OrderedMathExpr (IntLit a) == OrderedMathExpr (IntLit b) = a == b
-  OrderedMathExpr (Var a) == OrderedMathExpr (Var b) = a == b
+  OrderedMathExpr (Var (VarName a)) == OrderedMathExpr (Var (VarName b)) = a == b
   OrderedMathExpr (Neg e1) == OrderedMathExpr (Neg e2) = OrderedMathExpr e1 == OrderedMathExpr e2
   OrderedMathExpr (Sum es1) == OrderedMathExpr (Sum es2) =
     length es1 == length es2
@@ -125,7 +143,7 @@ instance Ord OrderedMathExpr where
   -- With the same constructor
 
   OrderedMathExpr (IntLit a) <= OrderedMathExpr (IntLit b) = a <= b
-  OrderedMathExpr (Var a) <= OrderedMathExpr (Var b) = a <= b
+  OrderedMathExpr (Var (VarName a)) <= OrderedMathExpr (Var (VarName b)) = a <= b
   OrderedMathExpr (Neg e1) <= OrderedMathExpr (Neg e2) = OrderedMathExpr e1 <= OrderedMathExpr e2
   OrderedMathExpr (Sum (_:|[])) <= OrderedMathExpr (Sum _) = True
   OrderedMathExpr (Sum (_:|(_:_))) <= OrderedMathExpr (Sum (_:|[])) = False
