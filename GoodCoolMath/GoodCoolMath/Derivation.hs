@@ -18,7 +18,7 @@ import GoodCoolMath.Shorthand
 
 -- | Take derivative of an expression
 der :: VarName -> MathExpr -> MathExpr
-der _ (IntLit _) = zero
+der _ (Const _) = zero
 der dVar (Var v)
   | dVar == v = one
   | otherwise = zero

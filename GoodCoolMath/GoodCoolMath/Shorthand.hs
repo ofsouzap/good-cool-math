@@ -3,7 +3,8 @@ module GoodCoolMath.Shorthand where
 import Data.List.NonEmpty
   ( NonEmpty((:|)) )
 import GoodCoolMath.Expressions
-  ( VarName(..)
+  ( Const(..)
+  , VarName(..)
   , MathExpr(..) )
 
 -- | Shorthand for creating a variable by some name
@@ -12,7 +13,7 @@ var = Var . VarName
 
 -- | An integer literal
 int :: Int -> MathExpr
-int = IntLit
+int = Const . IntLit
 
 -- | The integer literal for zero
 zero :: MathExpr

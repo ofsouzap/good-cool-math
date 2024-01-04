@@ -4,7 +4,7 @@ module GoodCoolMath.Simplification
   , simplifyAtMost
   , simplifyFully ) where
 
-import GoodCoolMath.Expressions ( MathExpr(..), (=~=), getIntLitVal )
+import GoodCoolMath.Expressions ( Const(..), MathExpr(..), (=~=), getIntLitVal, isIntLitOf )
 import Data.List ( unfoldr )
 import Data.List.NonEmpty
   ( NonEmpty((:|))
@@ -172,18 +172,14 @@ tryExpandProdsSubprods = fmap sconcat . (=<<) nonEmpty . mapOrFailReversed mapFu
 -- | Remove from a list of math expressions any elements that are integer literals of the specified value.
 -- Return Nothing if none found
 tryRemoveLiteralsOfReversing :: Int -> NonEmpty MathExpr -> Maybe (NonEmpty MathExpr)
-tryRemoveLiteralsOfReversing n = (=<<) nonEmpty . filterOrFailReversed filterFunc where
-  filterFunc (IntLit x)
-    | x == n = True
-    | otherwise = False
-  filterFunc _ = False
+tryRemoveLiteralsOfReversing n = (=<<) nonEmpty . filterOrFailReversed (isIntLitOf n)
 
 -- | Take terms and try to find all the integer literal terms and sum them together into a single integer literal term.
 -- If less than two integer literal terms found, returns Nothing
 tryCollectSumIntLits :: NonEmpty MathExpr -> Maybe (NonEmpty MathExpr)
 tryCollectSumIntLits = aux . trySumIntLitsReversing where
   aux (n, s, xs)
-    | n >= 2 = Just (NonEmpty.appendList ((pure . IntLit . getSum) s) xs)
+    | n >= 2 = Just (NonEmpty.appendList ((pure . Const . IntLit . getSum) s) xs)
     | otherwise = Nothing
 
 trySumIntLitsReversing :: Foldable t => t MathExpr -> (Int, Data.Monoid.Sum Int, [MathExpr])
@@ -194,7 +190,7 @@ trySumIntLitsReversing = monoidPartitionAccumulateWithCountReversing (fmap Data.
 tryCollectProdIntLits :: NonEmpty MathExpr -> Maybe (NonEmpty MathExpr)
 tryCollectProdIntLits = aux . tryProdIntLitsReversing where
   aux (n, p, xs)
-    | n >= 2 = Just (NonEmpty.appendList ((pure . IntLit . getProduct) p) xs)
+    | n >= 2 = Just (NonEmpty.appendList ((pure . Const . IntLit . getProduct) p) xs)
     | otherwise = Nothing
 
 tryProdIntLitsReversing :: Foldable t => t MathExpr -> (Int, Data.Monoid.Product Int, [MathExpr])

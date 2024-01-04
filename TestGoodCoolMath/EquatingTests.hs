@@ -10,13 +10,14 @@ import Test.QuickCheck
   ( property )
 import Utils
 import GoodCoolMath ( MathExpr(..), (=~=) )
+import GoodCoolMath.Shorthand
 
 spec :: Spec
 spec = do
   describe "Equating" $ do
     describe "With the same types" $ do
-      it "should equate all equal integer literals" $ property $
-        \ n -> IntLit n =~= IntLit n
+      it "should equate all equal constants" $ property $
+        \ c -> Const c =~= Const c
       it "should equate all equal variables" $ property $
         \ vName -> Var vName =~= Var vName
       it "should equate negatives of the same subexpression" $ property $

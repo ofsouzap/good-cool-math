@@ -16,6 +16,7 @@ import Test.QuickCheck
   , shuffle
   , suchThat, elements )
 import GoodCoolMath
+import GoodCoolMath.Shorthand
 
 -- General
 
@@ -78,7 +79,7 @@ instance Show MathExprLeaf where
 
 instance Arbitrary MathExprLeaf where
   arbitrary = do
-    eIntLit <- MathExprLeaf . IntLit <$> arbitrary
+    eIntLit <- MathExprLeaf . int <$> arbitrary
     eVar <- MathExprLeaf . Var <$> arbitrary
     elements [ eIntLit, eVar ]
 
@@ -131,7 +132,7 @@ unwrapIntLitZeroNonEmpty :: IntLitZeroNonEmpty -> NonEmpty MathExpr
 unwrapIntLitZeroNonEmpty (IntLitZeroNonEmpty es) = es
 
 instance Arbitrary IntLitZeroNonEmpty where
-  arbitrary = IntLitZeroNonEmpty . NonEmpty.map (const (IntLit 0)) <$> (arbitrary :: Gen (NonEmpty MathExpr))
+  arbitrary = IntLitZeroNonEmpty . NonEmpty.map (const zero) <$> (arbitrary :: Gen (NonEmpty MathExpr))
 
 newtype WithWithoutIntLitZeroMathExprs = WithWithoutIntLitZeroMathExprs (NonEmpty MathExpr, NonEmpty MathExpr)
   deriving ( Show )
@@ -153,7 +154,7 @@ unwrapIntLitOneNonEmpty :: IntLitOneNonEmpty -> NonEmpty MathExpr
 unwrapIntLitOneNonEmpty (IntLitOneNonEmpty es) = es
 
 instance Arbitrary IntLitOneNonEmpty where
-  arbitrary = IntLitOneNonEmpty . NonEmpty.map (const (IntLit 1)) <$> (arbitrary :: Gen (NonEmpty MathExpr))
+  arbitrary = IntLitOneNonEmpty . NonEmpty.map (const one) <$> (arbitrary :: Gen (NonEmpty MathExpr))
 
 newtype WithWithoutIntLitOneMathExprs = WithWithoutIntLitOneMathExprs (NonEmpty MathExpr, NonEmpty MathExpr)
   deriving ( Show )

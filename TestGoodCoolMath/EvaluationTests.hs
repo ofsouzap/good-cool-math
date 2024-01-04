@@ -10,7 +10,7 @@ import Test.Hspec
 import Test.QuickCheck
   ( property, Property, Arbitrary )
 import Utils
-import GoodCoolMath ( MathExpr(..), (=~=), evalApprox, evalApproxWith, set, empty, sub, EvalEnv, EnvList, EnvTree )
+import GoodCoolMath ( Const(..), MathExpr(..), (=~=), evalApprox, evalApproxWith, set, empty, sub, EvalEnv, EnvList, EnvTree )
 import GoodCoolMath.Shorthand
 import Data.Maybe (isNothing)
 import Data.List.NonEmpty ( NonEmpty )
@@ -60,7 +60,11 @@ spec = do
       describe "without environment" $ do
         -- Note, I'm not trying to evaluate arbitrary subexpressions since this often leads to infinities. Instead I'm just using leaf nodes
         it "should evaluate an integer literal to its value" $ property $
-          \ n -> isJustWhichApproxEq (fromIntegral n) 1e-3 ((evalApprox . IntLit) n)
+          \ n -> isJustWhichApproxEq (fromIntegral n) 1e-3 ((evalApprox . int) n)
+        it "shouldn't be able to evaluate a named constant" $ property $
+          \ s -> (isNothing . evalApprox . Const . NamedConst) s
+        it "should evaluate the pi constant to pi" $
+          isJustWhichApproxEq (pi :: Double) 1e-3 (evalApprox (Const Pi))
         it "should not be able to evaluate a variable" $ property $
           \ vName -> (isNothing . evalApprox . Var) vName
         it "should evaluate a negative to the negative of the evaluation of the subexpression" $ property $
@@ -94,9 +98,9 @@ spec = do
             shouldBeJustWhichApproxEq 0.99990920426 1e-3 (let x = int 5 in evalApprox ((Exp x `minus` Exp (neg x)) `dividedBy` (Exp x `plus` Exp (neg x))))
       describe "with environment" $ do
         it "should evaluate an integer literal to its value" $ property $
-          \ n (env :: EnvList) -> isJustWhichApproxEq (fromIntegral n) 1e-3 ((evalApproxWith env . IntLit) n)
+          \ n (env :: EnvList) -> isJustWhichApproxEq (fromIntegral n) 1e-3 ((evalApproxWith env . int) n)
         it "should evaluate a defined variable to its environment-defined value when it is the only defined variable" $ property $
-          \ vName vVal -> let (env :: EnvList) = set vName vVal empty in isJustWhichApproxEq (fromIntegral vVal) 1e-3 ((evalApproxWith env . Var) vName)
+          \ vName vVal -> let (env :: EnvList) = set vName (IntLit vVal) empty in isJustWhichApproxEq (fromIntegral vVal) 1e-3 ((evalApproxWith env . Var) vName)
         it "should not be able to evaluate a variable using an empty environment" $ property $
           \ vName (vVal :: Int) -> (isNothing . evalApproxWith (empty :: EnvList) . Var) vName
         -- TODO - hard-coded tests with variable substitutions needed

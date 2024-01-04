@@ -11,7 +11,8 @@ import Data.List.NonEmpty
 import qualified Data.List.NonEmpty as NonEmpty
   ( map )
 import GoodCoolMath.Expressions
-  ( VarName(..)
+  ( Const(..)
+  , VarName(..)
   , MathExpr(..) )
 import Data.Maybe (fromMaybe)
 
@@ -19,17 +20,18 @@ import Data.Maybe (fromMaybe)
 -- Evalutation Environments --
 ------------------------------
 
+-- | An evaluation environment, capable of substituting constants for variables
 class EvalEnv t where
   -- | The environment with no variables' values set
   empty :: t
   -- | Try find a value to substitute for a variable name in the environment
-  sub :: VarName -> t -> Maybe Int
+  sub :: VarName -> t -> Maybe Const
   -- | Set a value for a variable name in the environment
-  set :: VarName -> Int -> t -> t
+  set :: VarName -> Const -> t -> t
   -- | Substitute for all variables possible in an expression using the environment
   subExpr :: MathExpr -> t -> MathExpr
-  subExpr e@(IntLit _) _ = e
-  subExpr e@(Var vName) env = (maybe e IntLit . sub vName) env
+  subExpr e@(Const _) _ = e
+  subExpr e@(Var vName) env = (maybe e Const . sub vName) env
   subExpr (Neg e) env = (Neg . subExpr e) env
   subExpr (Sum es) env = (Sum . NonEmpty.map (`subExpr` env)) es
   subExpr (Prod es) env = (Prod . NonEmpty.map (`subExpr` env)) es
@@ -42,7 +44,7 @@ class EvalEnv t where
 -- | An evaluation environment stored as a list of variable name-value pairs.
 -- Values are added in constant time by appending them to the head of the list
 -- but, consequently, the list can become very long if values are frequently changed
-newtype EnvList = EnvList [(VarName, Int)]
+newtype EnvList = EnvList [(VarName, Const)]
   deriving ( Show )
 
 instance EvalEnv EnvList where
@@ -63,7 +65,7 @@ instance Arbitrary EnvList where
 -- but, in the worst case, can have linear-time insertions and queries
 data EnvTree =
     Leaf
-  | Node EnvTree EnvTree (VarName, Int)
+  | Node EnvTree EnvTree (VarName, Const)
   deriving ( Show )
 
 instance EvalEnv EnvTree where
@@ -96,7 +98,7 @@ instance Arbitrary EnvTree where
       arbitraryNodeWithName s = do
         l <- arbitraryConstrained (Just (LT, s))
         r <- arbitraryConstrained (Just (GT, s))
-        val <- (arbitrary :: Gen Int)
+        val <- (arbitrary :: Gen Const)
         return (Node l r (s, val))
 
 ----------------
@@ -109,10 +111,12 @@ safeLog x
   | otherwise = (Just . log) x
 
 -- | Evalutate an expression.
--- If the expression still contains any variables, Nothing is returned.
+-- If the expression still contains any named values (constant or variable), Nothing is returned.
 -- This evaluation function is approximate but can fully evaluate any expression without variables
 evalApprox :: (Ord t, Floating t) => MathExpr -> Maybe t
-evalApprox (IntLit n) = (Just . fromIntegral) n
+evalApprox (Const (IntLit n)) = (Just . fromIntegral) n
+evalApprox (Const (NamedConst _)) = Nothing
+evalApprox (Const Pi) = Just pi
 evalApprox (Var _) = Nothing
 evalApprox (Neg e) = negate <$> evalApprox e
 evalApprox (Sum (h:|[])) = evalApprox h

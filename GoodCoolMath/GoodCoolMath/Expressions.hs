@@ -1,7 +1,9 @@
 module GoodCoolMath.Expressions
-  ( VarName(..)
+  ( Const(..)
+  , VarName(..)
   , MathExpr(..)
   , (=~=)
+  , OrderedConst(..)
   , OrderedMathExpr(..)
   , isIntLitWhere
   , isIntLitOf
@@ -26,6 +28,31 @@ import Data.Semigroup (Semigroup(sconcat))
 bracketedShow :: Show a => a -> String
 bracketedShow x = "(" ++ show x ++ ")"
 
+---------------
+-- Constants --
+---------------
+
+-- | A constant value
+data Const =
+    IntLit Int
+  | NamedConst String
+  | Pi
+  deriving ( Eq )
+-- TODO - add constructor for unnamed constant: constant value that isn't given a value and can't be evaluated (eg could be used for constants of integration)
+instance Show Const where
+  show (IntLit n) = show n
+  show (NamedConst s) = show s
+  show Pi = "π"
+
+instance Arbitrary Const where
+  arbitrary = do
+    n <- (arbitrary :: Gen Int)
+    s <- (arbitrary :: Gen String)
+    elements
+      [ IntLit n
+      , NamedConst s
+      , Pi ]
+
 --------------------
 -- Variable Names --
 --------------------
@@ -44,7 +71,7 @@ instance Arbitrary VarName where
 ----------------------
 
 data MathExpr =
-    IntLit Int -- TODO - constants that aren't necessarily int-valued. Could be named with a string, could be just named (eg. pi)
+    Const Const
   | Var VarName
   | Neg MathExpr
   | Sum (NonEmpty MathExpr)
@@ -54,7 +81,7 @@ data MathExpr =
   | Ln MathExpr
 
 instance Show MathExpr where
-  show (IntLit x) = show x
+  show (Const x) = show x
   show (Var (VarName vName)) = vName
   show (Neg m) = "-" ++ bracketedShow m
   show (Sum m) = (sconcat . intersperse "+" . NonEmpty.map bracketedShow) m
@@ -68,7 +95,7 @@ arbitraryVarName = VarName . pure <$> (elements . filter (`notElem` ['e', 'i']))
 
 instance Arbitrary MathExpr where
   arbitrary = do
-    eIntLit <- IntLit <$> arbitrary
+    eConst <- Const <$> (arbitrary :: Gen Const)
     eVar <- Var <$> arbitraryVarName
     eNeg <- Neg <$> arbitrary
     eSum <- arbitrary
@@ -77,7 +104,7 @@ instance Arbitrary MathExpr where
     eExp <- Exp <$> arbitrary
     eLn <- Ln <$> arbitrary
     elements
-      [ eIntLit
+      [ eConst
       , eVar
       , eNeg
       , eSum
@@ -90,7 +117,7 @@ instance Arbitrary MathExpr where
 -- This will account for equivalence properties of the constructors, eg. commutativity of addition (1 + 2 == 2 + 1),
 -- but won't equate expressions of different constructors
 (=~=) :: MathExpr -> MathExpr -> Bool
-IntLit a =~= IntLit b = a == b
+Const a =~= Const b = a == b
 Var (VarName a) =~= Var (VarName b) = a == b
 Neg e1 =~= Neg e2 = e1 =~= e2
 Sum es1 =~= Sum es2 = exprListStructEqual
@@ -115,6 +142,28 @@ exprListStructEqual (xh:xts) (yh:yts) = xh =~= yh && exprListStructEqual xts yts
 -- Ordered expression --
 ------------------------
 
+-- | Type for internal use to allow ordering of constants to optimise comparisons
+-- NOTE: The ordering used is arbitrary and signifies nothing except a consistent way to sort constants.
+-- Be careful when using this
+newtype OrderedConst = OrderedConst Const
+  deriving ( Show, Eq )
+
+instance Ord OrderedConst where
+  OrderedConst (IntLit a) <= OrderedConst (IntLit b) = a <= b
+  OrderedConst (IntLit _) <= OrderedConst (NamedConst _) = True
+  OrderedConst (IntLit _) <= OrderedConst Pi = True
+
+  OrderedConst (NamedConst _) <= OrderedConst (IntLit _) = False
+  OrderedConst (NamedConst a) <= OrderedConst (NamedConst b) = a <= b
+  OrderedConst (NamedConst _) <= OrderedConst Pi = True
+
+  OrderedConst Pi <= OrderedConst (IntLit _) = False
+  OrderedConst Pi <= OrderedConst (NamedConst _) = False
+  OrderedConst Pi <= OrderedConst Pi = True
+
+instance Arbitrary OrderedConst where
+  arbitrary = OrderedConst <$> arbitrary
+
 -- | Type for internal use to allow ordering of math expressions to optimise comparisons
 -- NOTE: The ordering used is arbitrary and signifies nothing except a consistent way to sort math expressions.
 -- Be careful when using this
@@ -125,7 +174,7 @@ unwrapOrderedExpr :: OrderedMathExpr -> MathExpr
 unwrapOrderedExpr (OrderedMathExpr e') = e'
 
 instance Eq OrderedMathExpr where
-  OrderedMathExpr (IntLit a) == OrderedMathExpr (IntLit b) = a == b
+  OrderedMathExpr (Const a) == OrderedMathExpr (Const b) = OrderedConst a == OrderedConst b
   OrderedMathExpr (Var (VarName a)) == OrderedMathExpr (Var (VarName b)) = a == b
   OrderedMathExpr (Neg e1) == OrderedMathExpr (Neg e2) = OrderedMathExpr e1 == OrderedMathExpr e2
   OrderedMathExpr (Sum es1) == OrderedMathExpr (Sum es2) =
@@ -142,7 +191,7 @@ instance Eq OrderedMathExpr where
 instance Ord OrderedMathExpr where
   -- With the same constructor
 
-  OrderedMathExpr (IntLit a) <= OrderedMathExpr (IntLit b) = a <= b
+  OrderedMathExpr (Const a) <= OrderedMathExpr (Const b) = OrderedConst a <= OrderedConst b
   OrderedMathExpr (Var (VarName a)) <= OrderedMathExpr (Var (VarName b)) = a <= b
   OrderedMathExpr (Neg e1) <= OrderedMathExpr (Neg e2) = OrderedMathExpr e1 <= OrderedMathExpr e2
   OrderedMathExpr (Sum (_:|[])) <= OrderedMathExpr (Sum _) = True
@@ -166,15 +215,15 @@ instance Ord OrderedMathExpr where
 
   -- Otherwise, these orderings. I don't know how to do this without writing them all out :(
 
-  OrderedMathExpr (IntLit _) <= OrderedMathExpr (Var _) = True
-  OrderedMathExpr (IntLit _) <= OrderedMathExpr (Neg _) = True
-  OrderedMathExpr (IntLit _) <= OrderedMathExpr (Sum _) = True
-  OrderedMathExpr (IntLit _) <= OrderedMathExpr (Prod _) = True
-  OrderedMathExpr (IntLit _) <= OrderedMathExpr (Frac _ _) = True
-  OrderedMathExpr (IntLit _) <= OrderedMathExpr (Exp _) = True
-  OrderedMathExpr (IntLit _) <= OrderedMathExpr (Ln _) = True
+  OrderedMathExpr (Const _) <= OrderedMathExpr (Var _) = True
+  OrderedMathExpr (Const _) <= OrderedMathExpr (Neg _) = True
+  OrderedMathExpr (Const _) <= OrderedMathExpr (Sum _) = True
+  OrderedMathExpr (Const _) <= OrderedMathExpr (Prod _) = True
+  OrderedMathExpr (Const _) <= OrderedMathExpr (Frac _ _) = True
+  OrderedMathExpr (Const _) <= OrderedMathExpr (Exp _) = True
+  OrderedMathExpr (Const _) <= OrderedMathExpr (Ln _) = True
 
-  OrderedMathExpr (Var _) <= OrderedMathExpr (IntLit _) = False
+  OrderedMathExpr (Var _) <= OrderedMathExpr (Const _) = False
   OrderedMathExpr (Var _) <= OrderedMathExpr (Neg _) = True
   OrderedMathExpr (Var _) <= OrderedMathExpr (Sum _) = True
   OrderedMathExpr (Var _) <= OrderedMathExpr (Prod _) = True
@@ -182,7 +231,7 @@ instance Ord OrderedMathExpr where
   OrderedMathExpr (Var _) <= OrderedMathExpr (Exp _) = True
   OrderedMathExpr (Var _) <= OrderedMathExpr (Ln _) = True
 
-  OrderedMathExpr (Neg _) <= OrderedMathExpr (IntLit _) = False
+  OrderedMathExpr (Neg _) <= OrderedMathExpr (Const _) = False
   OrderedMathExpr (Neg _) <= OrderedMathExpr (Var _) = False
   OrderedMathExpr (Neg _) <= OrderedMathExpr (Sum _) = True
   OrderedMathExpr (Neg _) <= OrderedMathExpr (Prod _) = True
@@ -190,7 +239,7 @@ instance Ord OrderedMathExpr where
   OrderedMathExpr (Neg _) <= OrderedMathExpr (Exp _) = True
   OrderedMathExpr (Neg _) <= OrderedMathExpr (Ln _) = True
 
-  OrderedMathExpr (Sum _) <= OrderedMathExpr (IntLit _) = False
+  OrderedMathExpr (Sum _) <= OrderedMathExpr (Const _) = False
   OrderedMathExpr (Sum _) <= OrderedMathExpr (Var _) = False
   OrderedMathExpr (Sum _) <= OrderedMathExpr (Neg _) = False
   OrderedMathExpr (Sum _) <= OrderedMathExpr (Prod _) = True
@@ -198,7 +247,7 @@ instance Ord OrderedMathExpr where
   OrderedMathExpr (Sum _) <= OrderedMathExpr (Exp _) = True
   OrderedMathExpr (Sum _) <= OrderedMathExpr (Ln _) = True
 
-  OrderedMathExpr (Prod _) <= OrderedMathExpr (IntLit _) = False
+  OrderedMathExpr (Prod _) <= OrderedMathExpr (Const _) = False
   OrderedMathExpr (Prod _) <= OrderedMathExpr (Var _) = False
   OrderedMathExpr (Prod _) <= OrderedMathExpr (Neg _) = False
   OrderedMathExpr (Prod _) <= OrderedMathExpr (Sum _) = False
@@ -206,7 +255,7 @@ instance Ord OrderedMathExpr where
   OrderedMathExpr (Prod _) <= OrderedMathExpr (Exp _) = True
   OrderedMathExpr (Prod _) <= OrderedMathExpr (Ln _) = True
 
-  OrderedMathExpr (Frac _ _) <= OrderedMathExpr (IntLit _) = False
+  OrderedMathExpr (Frac _ _) <= OrderedMathExpr (Const _) = False
   OrderedMathExpr (Frac _ _) <= OrderedMathExpr (Var _) = False
   OrderedMathExpr (Frac _ _) <= OrderedMathExpr (Neg _) = False
   OrderedMathExpr (Frac _ _) <= OrderedMathExpr (Sum _) = False
@@ -214,7 +263,7 @@ instance Ord OrderedMathExpr where
   OrderedMathExpr (Frac _ _) <= OrderedMathExpr (Exp _) = True
   OrderedMathExpr (Frac _ _) <= OrderedMathExpr (Ln _) = True
 
-  OrderedMathExpr (Exp _) <= OrderedMathExpr (IntLit _) = False
+  OrderedMathExpr (Exp _) <= OrderedMathExpr (Const _) = False
   OrderedMathExpr (Exp _) <= OrderedMathExpr (Var _) = False
   OrderedMathExpr (Exp _) <= OrderedMathExpr (Neg _) = False
   OrderedMathExpr (Exp _) <= OrderedMathExpr (Sum _) = False
@@ -222,7 +271,7 @@ instance Ord OrderedMathExpr where
   OrderedMathExpr (Exp _) <= OrderedMathExpr (Frac _ _) = False
   OrderedMathExpr (Exp _) <= OrderedMathExpr (Ln _) = True
 
-  OrderedMathExpr (Ln _) <= OrderedMathExpr (IntLit _) = False
+  OrderedMathExpr (Ln _) <= OrderedMathExpr (Const _) = False
   OrderedMathExpr (Ln _) <= OrderedMathExpr (Var _) = False
   OrderedMathExpr (Ln _) <= OrderedMathExpr (Neg _) = False
   OrderedMathExpr (Ln _) <= OrderedMathExpr (Sum _) = False
@@ -238,7 +287,7 @@ instance Arbitrary OrderedMathExpr where
 -----------------------
 
 isIntLitWhere :: (Int -> Bool) -> MathExpr -> Bool
-isIntLitWhere f (IntLit x) = f x
+isIntLitWhere f (Const (IntLit x)) = f x
 isIntLitWhere _ _ = False
 
 isIntLit :: MathExpr -> Bool
@@ -251,5 +300,5 @@ hasZeroLit :: Foldable t => t MathExpr -> Bool
 hasZeroLit = any (isIntLitOf 0)
 
 getIntLitVal :: MathExpr -> Maybe Int
-getIntLitVal (IntLit x) = Just x
+getIntLitVal (Const (IntLit x)) = Just x
 getIntLitVal _ = Nothing

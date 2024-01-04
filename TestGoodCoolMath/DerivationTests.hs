@@ -26,7 +26,7 @@ spec = do
   describe "Derivation" $ do
     describe "with leaf nodes" $ do
       it "should return derivative of an integer as zero" $ property $
-        \ dVar n -> der dVar (IntLit n) =->..<-= zero
+        \ dVar n -> der dVar (int n) =->..<-= zero
       it "should return derivative of variable as zero if the variable is not the derivative variable" $ property $
         \ dVar vName -> dVar == vName || der dVar (Var vName) =->..<-= zero
       it "should return derivative of the differentiation variable as one" $ property $
