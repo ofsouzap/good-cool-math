@@ -10,7 +10,7 @@ import Test.Hspec
 import Test.QuickCheck
   ( property, Property, Arbitrary )
 import Utils
-import GoodCoolMath ( MathExpr(..), (=~=), evalApprox, evalApproxWith, set, empty, sub, EnvList(EnvList), EvalEnv )
+import GoodCoolMath ( MathExpr(..), (=~=), evalApprox, evalApproxWith, set, empty, sub, EvalEnv, EnvList, EnvTree )
 import GoodCoolMath.Shorthand
 import Data.Maybe (isNothing)
 import Data.List.NonEmpty ( NonEmpty )
@@ -102,3 +102,5 @@ spec = do
         -- TODO - hard-coded tests with variable substitutions needed
     describe "evaluation environments" $ do
       evalEnv (empty :: EnvList)
+    describe "evaluation environments" $ do
+      evalEnv (empty :: EnvTree)

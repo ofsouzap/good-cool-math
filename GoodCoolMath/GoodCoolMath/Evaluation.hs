@@ -1,16 +1,18 @@
 module GoodCoolMath.Evaluation
   ( EvalEnv(..)
-  , EnvList(..)
+  , EnvList
+  , EnvTree
   , evalApprox
   , evalApproxWith ) where
 
-import Test.QuickCheck ( Arbitrary(arbitrary) )
+import Test.QuickCheck ( Arbitrary(arbitrary), Gen, frequency, suchThatMaybe )
 import Data.List.NonEmpty
   ( NonEmpty((:|)) )
 import qualified Data.List.NonEmpty as NonEmpty
   ( map )
 import GoodCoolMath.Expressions
   ( MathExpr(..) )
+import Data.Maybe (fromMaybe)
 
 ------------------------------
 -- Evalutation Environments --
@@ -34,6 +36,11 @@ class EvalEnv t where
   subExpr (Exp e) env = Exp (subExpr e env)
   subExpr (Ln e) env = Ln (subExpr e env)
 
+-- EnvList
+
+-- | An evaluation environment stored as a list of variable name-value pairs.
+-- Values are added in constant time by appending them to the head of the list
+-- but, consequently, the list can become very long if values are frequently changed
 newtype EnvList = EnvList [(String, Int)]
   deriving ( Show )
 
@@ -48,7 +55,48 @@ instance EvalEnv EnvList where
 instance Arbitrary EnvList where
   arbitrary = EnvList <$> arbitrary
 
--- TODO - binary search tree evaluation environment
+-- EnvTree
+
+-- | An evaluation environment stored as a binary search tree with variable name-value pairs.
+-- In the average case, this will have logarithmic-time insertions and queries
+-- but, in the worst case, can have linear-time insertions and queries
+data EnvTree =
+    Leaf
+  | Node EnvTree EnvTree (String, Int)
+  deriving ( Show )
+
+instance EvalEnv EnvTree where
+  empty = Leaf
+  sub _ Leaf = Nothing
+  sub xn (Node l r (nn, nv))
+    | xn < nn = sub xn l
+    | xn > nn = sub xn r
+    | otherwise = Just nv
+  set xn xv Leaf = Node Leaf Leaf (xn, xv)
+  set xn xv (Node l r (nn, nv))
+    | xn < nn = Node (set xn xv l) r (nn, nv)
+    | xn > nn = Node l (set xn xv r) (nn, nv)
+    | otherwise = Node l r (nn, xv)
+
+instance Arbitrary EnvTree where
+  arbitrary = arbitraryConstrained Nothing
+    where
+      getVarName :: EnvTree -> Maybe String
+      getVarName Leaf = Nothing
+      getVarName (Node _ _ (x,_)) = Just x
+      arbitraryConstrained :: Maybe (Ordering, String) -> Gen EnvTree
+      arbitraryConstrained Nothing = do
+        childName <- (arbitrary :: Gen String)
+        frequency [(1, return Leaf), (1, arbitraryNodeWithName childName)]
+      arbitraryConstrained (Just (LT, s)) = fromMaybe Leaf <$> suchThatMaybe (arbitrary :: Gen EnvTree) (maybe True (< s) . getVarName)
+      arbitraryConstrained (Just (GT, s)) = fromMaybe Leaf <$> suchThatMaybe (arbitrary :: Gen EnvTree) (maybe True (> s) . getVarName)
+      arbitraryConstrained (Just (EQ, s)) = arbitraryNodeWithName s
+      arbitraryNodeWithName :: String -> Gen EnvTree
+      arbitraryNodeWithName s = do
+        l <- arbitraryConstrained (Just (LT, s))
+        r <- arbitraryConstrained (Just (GT, s))
+        val <- (arbitrary :: Gen Int)
+        return (Node l r (s, val))
 
 ----------------
 -- Evaluating --
