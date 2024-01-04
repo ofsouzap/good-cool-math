@@ -62,9 +62,19 @@ mapOrFailReversed :: (Applicative m, Monoid (m b), Foldable t) => (a -> (Bool, b
 mapOrFailReversed f = takeOutput . foldr foldFunc (False, mempty) where
   foldFunc x (state, acc) = case f x of
     (True, y) -> (True, pure y <> acc)
-    (_, y) -> (state, pure y <> acc)
+    (False, y) -> (state, pure y <> acc)
   takeOutput (False, _) = Nothing
   takeOutput (True, xs) = Just xs
+
+-- | Map a non-empty list and keep track of how many values were counted with a True from the mapping function
+mapAndCountNonEmpty :: (a -> (Bool, b)) -> NonEmpty a -> (Int, NonEmpty b) -- TODO - optimise with tail recursion (and rename to mention "reversing")
+mapAndCountNonEmpty f (h:|[]) = case f h of
+  (True, h') -> (1, h':|[])
+  (False, h') -> (0, h':|[])
+mapAndCountNonEmpty f (h:|th:tts) = let (n',ts') = mapAndCountNonEmpty f (th:|tts) in
+  case f h of
+    (True, h') -> (n'+1,h'<|ts')
+    (False, h') -> (n',h'<|ts')
 
 -- | Filter a list but return Nothing if no elements were removed.
 -- NOTE: output is reversed
@@ -76,14 +86,20 @@ filterOrFailReversed f = takeOutput . foldr foldFunc (False, mempty) where
   takeOutput (False, _) = Nothing
   takeOutput (True, xs) = Just xs
 
+-- | Go through a foldable of elements and accumulate those that are mapped to a Just into a semigroup structure starting with the provided starting value
+-- and return the number of elements accumulated, the semigroup result and the elements that weren't accumulated.
+-- NOTE: output is reversed
+semigroupPartitionAccumulateWithCountReversing :: (Semigroup sg, Foldable t) => (a -> Maybe sg) -> sg -> t a -> (Int, sg, [a])
+semigroupPartitionAccumulateWithCountReversing partitioner start = foldr foldFunc (0, start, []) where
+  foldFunc x (count, mAcc, xsAcc) = case partitioner x of
+    Just x' -> (count+1, mAcc <> x', xsAcc)
+    Nothing -> (count, mAcc, x : xsAcc)
+
 -- | Go through a foldable of elements and accumulate those that are mapped to a Just into a monoid structure
 -- and return the number of elements accumulated, the monoid result and the elements that weren't accumulated.
 -- NOTE: output is reversed
 monoidPartitionAccumulateWithCountReversing :: (Monoid m, Foldable t) => (a -> Maybe m) -> t a -> (Int, m, [a])
-monoidPartitionAccumulateWithCountReversing partitioner = foldr foldFunc (0, mempty, []) where
-  foldFunc x (count, mAcc, xsAcc) = case partitioner x of
-    Just x' -> (count+1, mAcc <> x', xsAcc)
-    Nothing -> (count, mAcc, x : xsAcc)
+monoidPartitionAccumulateWithCountReversing = flip semigroupPartitionAccumulateWithCountReversing mempty
 
 -------------------------------
 -- Expression simplification --
@@ -101,6 +117,7 @@ trySimplifyStep e@(Sum es) = firstJust
   , trySimplifyChildren e ] -- Otherwise, try simplify children
 trySimplifyStep e@(Prod es) = firstJust
   [ Prod <$> tryExpandProdsSubprods es -- Flatten nested products
+  , tryCollectProdNegs es -- Collect negative terms
   , Prod <$> tryExpandProdOfSums es -- "Multiply out" product-of-sums
   , Prod <$> tryCollectProdIntLits es -- Collect integer literal terms together
   , Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
@@ -212,3 +229,26 @@ partitionSums = takeOutput . monoidPartitionAccumulateWithCountReversing partFun
 
 multiplyOutSumTerms :: NonEmpty (NonEmpty MathExpr) -> NonEmpty MathExpr
 multiplyOutSumTerms = NonEmpty.map Prod . allCombsNonEmpty
+
+-- | Try to collect negative terms in a non-empty list of a product's subexpressions.
+-- If successful in finding any, returns the resulting product or negative of product term.
+-- If no negatives found, returns Nothing.
+tryCollectProdNegs :: NonEmpty MathExpr -> Maybe MathExpr
+tryCollectProdNegs = fmap takeOutput . tryCheckNetNeg where
+  takeOutput :: (Bool, NonEmpty MathExpr) -> MathExpr
+  takeOutput (True, es) = (Neg . Prod) es
+  takeOutput (False, es) = Prod es
+
+-- | Take a sequence of math expressions and check if an odd number are Neg nodes.
+-- If there are Neg nodes, a True means that the result should be negative.
+-- If no Neg nodes are found in the list, return Nothing.
+tryCheckNetNeg :: NonEmpty MathExpr -> Maybe (Bool, NonEmpty MathExpr)
+tryCheckNetNeg = takeOutput . mapAndCountNonEmpty mapFunc where
+  mapFunc :: MathExpr -> (Bool, MathExpr)
+  mapFunc (Neg e') = (True, e')
+  mapFunc e = (False, e)
+  takeOutput :: (Int, NonEmpty MathExpr) -> Maybe (Bool, NonEmpty MathExpr)
+  takeOutput (0, _) = Nothing
+  takeOutput (n, es)
+    | even n = Just (False, es)
+    | otherwise = Just (True, es)
