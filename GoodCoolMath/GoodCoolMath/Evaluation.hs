@@ -116,6 +116,7 @@ safeLog x
 evalApprox :: (Ord t, Floating t) => MathExpr -> Maybe t
 evalApprox (Const (IntLit n)) = (Just . fromIntegral) n
 evalApprox (Const (NamedConst _)) = Nothing
+evalApprox (Const UnnamedConst) = Nothing
 evalApprox (Const Pi) = Just pi
 evalApprox (Var _) = Nothing
 evalApprox (Neg e) = negate <$> evalApprox e

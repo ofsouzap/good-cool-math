@@ -36,12 +36,14 @@ bracketedShow x = "(" ++ show x ++ ")"
 data Const =
     IntLit Int
   | NamedConst String
+  | UnnamedConst
   | Pi
   deriving ( Eq )
--- TODO - add constructor for unnamed constant: constant value that isn't given a value and can't be evaluated (eg could be used for constants of integration)
+
 instance Show Const where
   show (IntLit n) = show n
   show (NamedConst s) = show s
+  show UnnamedConst = "const"
   show Pi = "π"
 
 instance Arbitrary Const where
@@ -51,6 +53,7 @@ instance Arbitrary Const where
     elements
       [ IntLit n
       , NamedConst s
+      , UnnamedConst
       , Pi ]
 
 --------------------
@@ -151,14 +154,22 @@ newtype OrderedConst = OrderedConst Const
 instance Ord OrderedConst where
   OrderedConst (IntLit a) <= OrderedConst (IntLit b) = a <= b
   OrderedConst (IntLit _) <= OrderedConst (NamedConst _) = True
+  OrderedConst (IntLit _) <= OrderedConst UnnamedConst = True
   OrderedConst (IntLit _) <= OrderedConst Pi = True
 
   OrderedConst (NamedConst _) <= OrderedConst (IntLit _) = False
   OrderedConst (NamedConst a) <= OrderedConst (NamedConst b) = a <= b
+  OrderedConst (NamedConst _) <= OrderedConst UnnamedConst = True
   OrderedConst (NamedConst _) <= OrderedConst Pi = True
+
+  OrderedConst UnnamedConst <= OrderedConst (IntLit _) = False
+  OrderedConst UnnamedConst <= OrderedConst (NamedConst _) = False
+  OrderedConst UnnamedConst <= OrderedConst UnnamedConst = True
+  OrderedConst UnnamedConst <= OrderedConst Pi = True
 
   OrderedConst Pi <= OrderedConst (IntLit _) = False
   OrderedConst Pi <= OrderedConst (NamedConst _) = False
+  OrderedConst Pi <= OrderedConst UnnamedConst = False
   OrderedConst Pi <= OrderedConst Pi = True
 
 instance Arbitrary OrderedConst where

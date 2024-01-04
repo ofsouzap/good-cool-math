@@ -52,6 +52,10 @@ e1 `minus` e2 = e1 `plus` Neg e2
 constE :: MathExpr
 constE = Exp one
 
+-- | The constant pi (3.14...)
+constPi :: MathExpr
+constPi = Const Pi
+
 -- | Product of two expressions
 times :: MathExpr -> MathExpr -> MathExpr
 e1 `times` e2 = Prod (e1 :| [e2])
