@@ -25,6 +25,8 @@ import GoodCoolMath.Shorthand
 doesntSimplify :: MathExpr -> Bool
 doesntSimplify e = ((=~= e) . simplifyFully) e
 
+-- TODO - consider changing to comparing by sampling different possible inputs instead of trying to simplify the expressions first
+
 spec :: Spec
 spec = do
   describe "Simplification" $ do
@@ -72,6 +74,13 @@ spec = do
     -- describe "when a product has multiple sums in it" $ do
     --   it "should expand them into a single sum" $ property $
     --     \ (SumsAndWithWithout (sumTerms, xs, others)) -> Prod xs =->..<-= Prod ((Sum . concat) sumTerms : others)
+    describe "when a fraction has negatives" $ do
+      it "when both are negative, should be the same as when both are positive" $ property $
+        \ (num', den') -> Frac (Neg num') (Neg den') =->..<-= Frac num' den'
+      it "when at least the numerator is negative, should be the same as when the fraction is negated" $ property $
+        \ (num', den) -> Frac (Neg num') den =->..<-= Neg (Frac num' den)
+      it "when at least the numerator is negative, should be the same as when the fraction is negated" $ property $
+        \ (num, den') -> Frac num (Neg den') =->..<-= Neg (Frac num den')
     describe "with an exponential" $ do
       it "should simplify a logarithm exponent to the subexpression" $ property $
         \ e -> e =->..<-= Exp (Ln e)

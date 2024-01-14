@@ -123,7 +123,8 @@ trySimplifyStep e@(Prod es) = firstJust
   , Prod <$> tryRemoveLiteralsOfReversing 1 es -- Remove 1s from products
   , trySimplifyChildren e ] -- Otherwise, try simplify children
   -- TODO - collect negatives in subexpressions, have 0 literal in product make whoole product 0
--- TODO - collect negatives from fraction
+trySimplifyStep (Frac num den) = firstJust
+  [ tryCollectFracNegs num den ] -- Collect negative terms
 trySimplifyStep (Exp (Ln e)) = Just e -- Exponential of logarithm becomes the subexpression
 trySimplifyStep (Exp (Sum es)) = (Just . Prod . NonEmpty.map Exp) es -- Exponential of sum becomes product of exponentials
 trySimplifyStep e = trySimplifyChildren e
@@ -252,3 +253,11 @@ tryCheckNetNeg = takeOutput . mapAndCountNonEmpty mapFunc where
   takeOutput (n, es)
     | even n = Just (False, es)
     | otherwise = Just (True, es)
+
+-- | Take the numerator and denominator of a fraction and try to find any negative terms and collect them.
+-- If any are found, returns the fixed fraction term, otherwise returns Nothing
+tryCollectFracNegs :: MathExpr -> MathExpr -> Maybe MathExpr
+tryCollectFracNegs (Neg num') (Neg den') = Just (Frac num' den')
+tryCollectFracNegs (Neg num') den = (Just . Neg) (Frac num' den)
+tryCollectFracNegs num (Neg den') = (Just . Neg) (Frac num den')
+tryCollectFracNegs _ _ = Nothing
