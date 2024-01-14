@@ -39,6 +39,6 @@ spec = do
     it "should return correct derivative of a fraction" $ property $
       \ dVar num den -> der dVar (Frac num den) =->..<-= (((den `times` der dVar num) `minus` (num `times` der dVar den)) `dividedBy` sqr den)
     it "should return the correct derivative of an exponential" $ property $
-      \ dVar e -> der dVar (Exp e) =->..<-= (e `times` Exp (e `plus` negOne) `times` der dVar e)
+      \ dVar e -> der dVar (Exp e) =->..<-= (Exp e `times` der dVar e)
     it "should return the correct derivative of a logarithm" $ property $
       \ dVar e -> der dVar (Ln e) =->..<-= Frac (der dVar e) e

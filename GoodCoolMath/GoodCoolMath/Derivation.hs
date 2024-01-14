@@ -10,7 +10,7 @@ import GoodCoolMath.Expressions ( VarName(..), MathExpr(..) )
 import GoodCoolMath.Shorthand
   ( zero
   , one
-  , negOne )
+  , times )
 
 ------------------------
 -- Taking derivatives --
@@ -33,8 +33,5 @@ der dVar (Frac num den) = Frac
       ( Prod (der dVar num:|[den]) :| -- d/dx num * den
       [ Neg (Prod (num:|[der dVar den])) ] ) ) -- -num * d/dx den
   ( Prod (den:|[ den ]) ) -- den^2
-der dVar (Exp x) = Prod
-  ( x :|
-  [ Exp (Sum (x:|[negOne]))
-  , der dVar x ] )
+der dVar e@(Exp x) = e `times` der dVar x
 der dVar (Ln x) = Frac (der dVar x) x
